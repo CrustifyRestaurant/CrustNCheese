@@ -3427,13 +3427,15 @@ async function changeTablePrompt() {
   
   const newLocation = newTable.replace('-', ' ');
   saveTableOrder();
-  document.getElementById('order-table-name').textContent = newLocation;
   if (currentOrder.id) {
-    await sbWrite('kitchen_orders', 'update', { location: newLocation }, { eq: [['id', currentOrder.id]] });
-    showToast('Moved to ' + newTable + (isOnline ? ' ✅' : ' — queued offline'), 'success');
+    await sbWrite('kitchen_orders', 'update',
+      { location: newLocation, type: newType },
+      { eq: [['id', currentOrder.id]] });
+    showToast('Moved to ' + newTable + ' (' + newType + ')' + (isOnline ? ' ✅' : ' — queued offline'), 'success');
   } else {
-    showToast('Moved to ' + newTable, 'success');
+    showToast('Moved to ' + newTable + ' (' + newType + ')', 'success');
   }
+  openOrderView(newTable, newType);
   renderTableMap();
 }
 async function returnItem(idx) {
