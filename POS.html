@@ -420,28 +420,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
   @page{size:72mm auto;margin:0;}
 }
 #print-area{display:none;}
-@media print {
-  html, body {
-    width: 80mm !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  body > *:not(#print-area) { display: none !important; }
-  #print-area {
-    display: block !important;
-    width: 76mm !important;
-    margin: 0 auto !important;
-  }
-  #print-area * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    box-sizing: border-box;
-  }
-  @page {
-    size: 80mm 3000mm;
-    margin: 0;
-  }
-}
+
 </style>
 </head>
 <body>
