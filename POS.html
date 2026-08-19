@@ -3461,7 +3461,7 @@ async function returnItem(idx) {
     returnReason: reason || 'No reason given'
   };
   const _returnWriteRes = await sbWrite('shift_transactions', 'insert', [{
-    id: _returnId, branch: activeBranch, date: todayKey(), bill_no: 'RTN', type: currentOrder.type,
+  id: _returnId, branch: activeBranch, date: todayKey(), bill_no: 'RTN-' + Date.now().toString(36).toUpperCase(), type: currentOrder.type,
     table_loc: currentOrder.table || '', items_text: item.qty + 'x ' + item.name,
     subtotal: item.price * item.qty, total: -(item.price * item.qty),
     method: 'return', staff: currentStaff, return_reason: reason || 'No reason given',
@@ -3539,10 +3539,10 @@ async function voidCurrentOrder() {
   // Save to Supabase shift_transactions
   const _voidId = genId();
   const _voidWriteRes = await sbWrite('shift_transactions', 'insert', [{
-    id: _voidId,
-    branch: activeBranch,
-    date: todayKey(),
-    bill_no: 'VOID',
+  id: _voidId,
+  branch: activeBranch,
+  date: todayKey(),
+  bill_no: 'VOID-' + Date.now().toString(36).toUpperCase(),
     type: currentOrder.type,
     table_loc: currentOrder.table || '',
     items: currentOrder.items,
@@ -4913,11 +4913,11 @@ async function addExpense() {
   };
 
   const _expWriteRes = await sbWrite('shift_transactions', 'insert', [{
-    id: _expId,
-    branch: activeBranch,
-    date: todayKey(),
-    bill_no: 'EXP',
-    type: 'Expense',
+  id: _expId,
+  branch: activeBranch,
+  date: todayKey(),
+  bill_no: 'EXP-' + Date.now().toString(36).toUpperCase(),
+  type: 'Expense',
     table_loc: '',
     items_text: desc.trim(),
     subtotal: amt,
@@ -4970,7 +4970,8 @@ function renderCashView(txList, openingBal, isRange) {
   const totalCash = cashSales + splitCash;
   const totalCard = cardSales + splitCard;
 const totalSales = orders.filter(o=>!['cash-in','cash-out'].includes(o.method)).reduce((s,o)=>s+o.total,0);
-  const totalDelFees = sumDeliveryFeesHeldByRider(orders);
+  const totalDelFees = orders.filter(o => o.type === 'Delivery')
+  .reduce((s,o) => s + (o.deliveryCharge || o.delivery_charge || 0), 0);
   const shopSales = totalSales - totalDelFees;  const cashOuts = orders.filter(o=>o.method==='cash-out').reduce((s,o)=>s+Math.abs(o.total),0);
   const expenses = orders.filter(o=>o.method==='expense').reduce((s,o)=>s+Math.abs(o.total),0);
   const expected = computeCashInHand(orders, opening);
@@ -5273,6 +5274,7 @@ async function printClosingReport() {
     + billsOnly.filter(t=>t.method==='split').reduce((s,t)=>s+(t.split_card||0),0);
   const scColl = billsOnly.reduce((s,t)=>s+(t.sc||0),0);
   const discGiven = billsOnly.reduce((s,t)=>s+(t.discount||0),0);
+  const delFeesColl = billsOnly.filter(t=>t.type==='Delivery').reduce((s,t)=>s+(t.delivery_charge||0),0);
   const cashOuts = txs.filter(t=>t.method==='cash-out').reduce((s,t)=>s+Math.abs(t.total),0);
   const expenses = sales.filter(t=>t.method==='expense').reduce((s,t)=>s+Math.abs(t.total),0);
 
@@ -5296,6 +5298,7 @@ async function printClosingReport() {
         <div style="display:flex;justify-content:space-between;"><span>Card Sales:</span><span>Rs ${card}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>SC Collected:</span><span>Rs ${scColl}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Discounts:</span><span>Rs ${discGiven}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Delivery Fees:</span><span>Rs ${delFeesColl}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Cash Outs:</span><span>Rs ${cashOuts}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Expenses:</span><span>Rs ${expenses}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Opening Bal:</span><span>Rs ${opening}</span></div>
@@ -5344,6 +5347,7 @@ async function exportClosingExcel() {
     + billsOnly.filter(t=>t.method==='split').reduce((s,t)=>s+(t.split_card||0),0);
   const scCollected = billsOnly.reduce((s,t)=>s+(t.sc||0),0);
   const discGiven = billsOnly.reduce((s,t)=>s+(t.discount||0),0);
+  const delFeesCollected = billsOnly.filter(t=>t.type==='Delivery').reduce((s,t)=>s+(t.delivery_charge||0),0);
   const cashOuts = txs.filter(t=>t.method==='cash-out').reduce((s,t)=>s+Math.abs(t.total),0);
   const expenses = sales.filter(t=>t.method==='expense').reduce((s,t)=>s+Math.abs(t.total),0);
   const returns = sales.filter(t=>t.method==='return');
@@ -5364,6 +5368,7 @@ async function exportClosingExcel() {
   lines.push(`Card Collected,Rs ${card}`);
   lines.push(`SC Collected,Rs ${scCollected}`);
   lines.push(`Discounts Given,Rs ${discGiven}`);
+  lines.push(`Delivery Fees,Rs ${delFeesCollected}`);
   lines.push(`Returns,Rs ${returnTotal}`);
   lines.push(`Voids,Rs ${voidTotal}`);
   lines.push(`Cash Outs,Rs ${cashOuts}`);
@@ -5767,6 +5772,7 @@ async function loadHistoryForRange(fromDateTime, toDateTime) {
       + rangeSales.filter(t => t.method === 'split').reduce((s,t) => s + (t.split_card||0), 0);
     const rangeSC = rangeSales.reduce((s,t) => s + (t.sc||0), 0);
     const rangeDisc = rangeSales.reduce((s,t) => s + (t.discount||0), 0);
+    const rangeDelFees = rangeBillsOnly.filter(t => t.type === 'Delivery').reduce((s,t) => s + (t.delivery_charge||0), 0);
     const rangeVoids = (txs||[]).filter(t => t.method === 'void');
     const rangeVoidTotal = rangeVoids.reduce((s,t) => s + Math.abs(t.total), 0);
     const rangeExpenses = (txs||[]).filter(t => t.method === 'expense').reduce((s,t) => s + Math.abs(t.total), 0);
@@ -5785,6 +5791,7 @@ async function loadHistoryForRange(fromDateTime, toDateTime) {
           <div><div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;">Card</div><div style="font-size:20px;font-weight:900;color:var(--blue);">Rs ${rangeCard}</div></div>
           <div><div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;">SC Collected</div><div style="font-size:20px;font-weight:900;color:var(--orange);">Rs ${rangeSC}</div></div>
           <div><div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;">Discounts</div><div style="font-size:20px;font-weight:900;color:var(--red);">Rs ${rangeDisc}</div></div>
+          <div><div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;">Delivery Fees</div><div style="font-size:20px;font-weight:900;color:var(--orange);">Rs ${rangeDelFees}</div></div>
           <div><div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;">Voids</div><div style="font-size:20px;font-weight:900;color:var(--red);">${rangeVoids.length} (Rs ${rangeVoidTotal})</div></div>
           <div><div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;">Expenses</div><div style="font-size:20px;font-weight:900;color:var(--red);">Rs ${rangeExpenses}</div></div>
           <div><div style="font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;">Net Cash (excl. opening)</div><div style="font-size:20px;font-weight:900;color:var(--green);">Rs ${rangeHandOver}</div></div>
@@ -5826,6 +5833,7 @@ async function loadHistoryForRange(fromDateTime, toDateTime) {
         + sSales.filter(t => t.method === 'split').reduce((s,t) => s + (t.split_card||0), 0);
       const sSC = sSales.reduce((s,t) => s + (t.sc||0), 0);
       const sDisc = sSales.reduce((s,t) => s + (t.discount||0), 0);
+      const sDelFees = sBillsOnly.filter(t => t.type === 'Delivery').reduce((s,t) => s + (t.delivery_charge||0), 0);
       const sVoids = sTxs.filter(t => t.method === 'void');
       const sVoidTotal = sVoids.reduce((s,t) => s + Math.abs(t.total), 0);
       const sExpenses = sTxs.filter(t => t.method === 'expense').reduce((s,t) => s + Math.abs(t.total), 0);
@@ -5869,6 +5877,10 @@ async function loadHistoryForRange(fromDateTime, toDateTime) {
               <div style="font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Discounts</div>
               <div style="font-size:22px;font-weight:900;color:var(--red);">Rs ${sDisc}</div>
             </div>
+            <div style="background:var(--surface2);border-radius:10px;padding:12px;">
+  <div style="font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Delivery Fees</div>
+  <div style="font-size:22px;font-weight:900;color:var(--orange);">Rs ${sDelFees}</div>
+</div>
             <div style="background:var(--surface2);border-radius:10px;padding:12px;">
               <div style="font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Voids</div>
               <div style="font-size:22px;font-weight:900;color:var(--red);">${sVoids.length} (Rs ${sVoidTotal})</div>
