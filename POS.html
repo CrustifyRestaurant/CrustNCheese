@@ -4082,6 +4082,7 @@ function printTakeawaySlip(sale) {
     '<div style="font-family:\'Courier New\',monospace;color:black;padding:8px;width:72mm;text-align:center;">' +
       '<h1 style="margin:0;font-size:22px;font-weight:900;letter-spacing:3px;">CrustNCheese</h1>' +
       '<div style="font-size:9px;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000;padding:2px;margin:3px 0;">' + br.name.toUpperCase() + ' — ' + sale.type.toUpperCase() + '</div>' +
+      '<div style="font-size:10px;font-weight:600;margin-bottom:2px;">📞 ' + br.phone.replace('92','0') + '</div>' +
       '<div style="font-size:40px;font-weight:900;border:3px solid #000;margin:8px auto;padding:6px;width:fit-content;min-width:80px;">🎫 #' + sale.billNo + '</div>' +
       '<div style="font-size:11px;margin-bottom:4px;">' + new Date(sale.time).toLocaleTimeString('en-PK', {hour:'2-digit',minute:'2-digit',hour12:true}) + '</div>' +
       (sale.customerName ? '<div style="font-size:13px;font-weight:bold;">👤 ' + sale.customerName + '</div>' : '') +
@@ -4394,6 +4395,7 @@ async function printKitchenTicket() {
   const type = currentOrder.type;
   const table = (currentOrder.table || '').replace(/-/g, ' ');
   const custName = document.getElementById('order-customer-name').value;
+const custPhone = document.getElementById('order-customer-phone').value;
   const delAddr = type === 'Delivery'
     ? (document.getElementById('delivery-address').value || currentOrder.deliveryAddress || '') : '';
   const time = new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -4527,7 +4529,8 @@ function printReceipt(sale, isSplit=false) {
       <div style="text-align:center;margin-bottom:8px;">
         <div style="font-size:26px;font-weight:900;letter-spacing:2px;">CrustNCheese</div>
         <div style="font-size:12px;font-weight:700;border-top:2px solid #000;border-bottom:2px solid #000;padding:5px 0;margin:8px 0;">${br.name.toUpperCase()} BRANCH</div>
-        <div style="font-size:11px;font-weight:600;line-height:1.4;">${br.address}</div>
+<div style="font-size:11px;font-weight:600;line-height:1.4;">${br.address}</div>
+<div style="font-size:11px;font-weight:600;margin-top:2px;">📞 ${br.phone.replace('92','0')}</div>
       </div>
 
       <div style="border-bottom:2px solid #000;margin:10px 0;"></div>
