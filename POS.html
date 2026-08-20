@@ -984,14 +984,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
     <div class="modal-title">✂️ Split Bill</div>
     <div class="modal-sub">How do you want to split?</div>
     <!-- Mode selector -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px;">
       <button id="split-mode-items-btn" onclick="setSplitMode('items')"
-        style="padding:14px;border-radius:12px;border:2px solid var(--orange);background:rgba(230,126,34,0.15);color:var(--orange);font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;">
+        style="padding:14px 8px;border-radius:12px;border:2px solid var(--orange);background:rgba(230,126,34,0.15);color:var(--orange);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">
         🍽️ By Items
       </button>
       <button id="split-mode-amount-btn" onclick="setSplitMode('amount')"
-        style="padding:14px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;">
-        💰 By Amount
+        style="padding:14px 8px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">
+        ⚖️ Equal Split
+      </button>
+      <button id="split-mode-custom-btn" onclick="setSplitMode('custom')"
+        style="padding:14px 8px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">
+        ✏️ Custom
       </button>
     </div>
 
@@ -1047,6 +1051,27 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
       <div class="modal-actions">
         <button class="modal-cancel" onclick="closeModal('split-modal')">Cancel</button>
         <button class="modal-confirm" onclick="applySplitByAmount()">Print Split Bills</button>
+      </div>
+    </div>
+
+    <!-- By Custom Amounts -->
+    <div id="split-custom-section" style="display:none;">
+      <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;text-align:center;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">ORDER TOTAL</div>
+        <div style="font-size:28px;font-weight:800;color:var(--orange);" id="split-custom-order-total">Rs 0</div>
+      </div>
+      <div id="split-custom-rows" style="margin-bottom:4px;"></div>
+      <button onclick="addCustomSplitRow()"
+        style="width:100%;padding:9px;border-radius:9px;background:rgba(39,174,96,0.1);border:1px dashed rgba(39,174,96,0.3);color:var(--green);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+        + Add Payment
+      </button>
+      <div id="split-custom-balance-box" style="background:rgba(39,174,96,0.1);border:1px solid rgba(39,174,96,0.3);border-radius:9px;padding:9px 13px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div id="split-custom-balance-label" style="font-size:13px;color:var(--green);font-weight:700;letter-spacing:1px;text-transform:uppercase;">Remaining</div>
+        <div id="split-custom-balance" style="font-family:'Outfit',sans-serif;font-size:20px;font-weight:900;color:var(--green);">Rs 0</div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-cancel" onclick="closeModal('split-modal')">Cancel</button>
+        <button class="modal-confirm" onclick="applySplitByCustom()">Print Split Bills</button>
       </div>
     </div>
   </div>
@@ -3690,6 +3715,8 @@ function openSplitModal() {
   document.getElementById('split-order-total').textContent = 'Rs ' + totals.grand;
   document.getElementById('split-people-count').textContent = '2';
   document.getElementById('split-per-person').textContent = 'Rs ' + Math.ceil(totals.grand / 2);
+  document.getElementById('split-custom-order-total').textContent = 'Rs ' + totals.grand;
+  splitCustomRows = [];
 
   // Reset method buttons
   ['cash','card','bank','jazzcash','foodpanda'].forEach(function(m) {
@@ -3708,14 +3735,185 @@ function setSplitMode(mode) {
   splitMode = mode;
   document.getElementById('split-items-section').style.display = mode === 'items' ? 'block' : 'none';
   document.getElementById('split-amount-section').style.display = mode === 'amount' ? 'block' : 'none';
-  var itemsBtn = document.getElementById('split-mode-items-btn');
-  var amtBtn = document.getElementById('split-mode-amount-btn');
-  itemsBtn.style.borderColor = mode === 'items' ? 'var(--orange)' : 'var(--border)';
-  itemsBtn.style.background = mode === 'items' ? 'rgba(230,126,34,0.15)' : 'var(--surface2)';
-  itemsBtn.style.color = mode === 'items' ? 'var(--orange)' : 'var(--text2)';
-  amtBtn.style.borderColor = mode === 'amount' ? 'var(--orange)' : 'var(--border)';
-  amtBtn.style.background = mode === 'amount' ? 'rgba(230,126,34,0.15)' : 'var(--surface2)';
-  amtBtn.style.color = mode === 'amount' ? 'var(--orange)' : 'var(--text2)';
+  document.getElementById('split-custom-section').style.display = mode === 'custom' ? 'block' : 'none';
+  [['items','split-mode-items-btn'],['amount','split-mode-amount-btn'],['custom','split-mode-custom-btn']].forEach(function(pair) {
+    var m = pair[0], id = pair[1];
+    var btn = document.getElementById(id);
+    if (!btn) return;
+    var on = mode === m;
+    btn.style.borderColor = on ? 'var(--orange)' : 'var(--border)';
+    btn.style.background = on ? 'rgba(230,126,34,0.15)' : 'var(--surface2)';
+    btn.style.color = on ? 'var(--orange)' : 'var(--text2)';
+  });
+  if (mode === 'custom' && !splitCustomRows.length) {
+    var total = parseInt((document.getElementById('split-order-total').textContent||'Rs 0').replace('Rs ','')) || 0;
+    document.getElementById('split-custom-order-total').textContent = 'Rs ' + total;
+    initSplitCustomRows(total);
+  }
+}
+
+// ══════════════════════════════════
+// CUSTOM SPLIT (uneven amounts, per-payment method)
+// ══════════════════════════════════
+let splitCustomRows = [];
+
+function initSplitCustomRows(total) {
+  var half = Math.ceil(total/2);
+  splitCustomRows = [
+    { amount: half, method: 'cash' },
+    { amount: total - half, method: 'cash' }
+  ];
+  renderSplitCustomRows();
+}
+
+function renderSplitCustomRows() {
+  var wrap = document.getElementById('split-custom-rows');
+  wrap.innerHTML = splitCustomRows.map(function(row, idx) {
+    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">' +
+      '<input type="number" value="' + row.amount + '" placeholder="Amount" ' +
+        'oninput="updateCustomSplitRow(' + idx + ',\'amount\',this.value)" ' +
+        'style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--orange);font-family:\'Outfit\',sans-serif;font-size:14px;font-weight:700;outline:none;">' +
+      '<span style="font-size:12px;color:var(--text3);">Rs</span>' +
+      '<select onchange="updateCustomSplitRow(' + idx + ',\'method\',this.value)" ' +
+        'style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 6px;color:var(--text);font-family:\'Outfit\',sans-serif;font-size:12px;font-weight:700;outline:none;">' +
+        '<option value="cash"' + (row.method==='cash'?' selected':'') + '>💵 Cash</option>' +
+        '<option value="card"' + (row.method==='card'?' selected':'') + '>💳 Card</option>' +
+        '<option value="bank"' + (row.method==='bank'?' selected':'') + '>🏦 Bank</option>' +
+        '<option value="jazzcash"' + (row.method==='jazzcash'?' selected':'') + '>📱 JazzCash</option>' +
+        '<option value="foodpanda"' + (row.method==='foodpanda'?' selected':'') + '>🐼 FoodPanda</option>' +
+      '</select>' +
+      (splitCustomRows.length > 1
+        ? '<button onclick="removeCustomSplitRow(' + idx + ')" style="width:30px;height:34px;border-radius:8px;background:rgba(192,57,43,0.15);border:none;color:var(--red);cursor:pointer;font-size:13px;">✕</button>'
+        : '') +
+    '</div>';
+  }).join('');
+  updateCustomSplitTotals();
+}
+
+function addCustomSplitRow() {
+  splitCustomRows.push({ amount: 0, method: 'cash' });
+  renderSplitCustomRows();
+}
+
+function removeCustomSplitRow(idx) {
+  splitCustomRows.splice(idx, 1);
+  renderSplitCustomRows();
+}
+
+function updateCustomSplitRow(idx, field, val) {
+  if (!splitCustomRows[idx]) return;
+  if (field === 'amount') splitCustomRows[idx].amount = parseFloat(val) || 0;
+  else splitCustomRows[idx].method = val;
+  updateCustomSplitTotals();
+}
+
+function updateCustomSplitTotals() {
+  var total = parseInt((document.getElementById('split-custom-order-total').textContent||'Rs 0').replace('Rs ','')) || 0;
+  var allocated = splitCustomRows.reduce(function(s,r){ return s + (r.amount||0); }, 0);
+  var remaining = total - allocated;
+  var box = document.getElementById('split-custom-balance-box');
+  var label = document.getElementById('split-custom-balance-label');
+  var amt = document.getElementById('split-custom-balance');
+  if (remaining === 0) {
+    box.style.background = 'rgba(39,174,96,0.1)'; box.style.borderColor = 'rgba(39,174,96,0.3)';
+    label.style.color = 'var(--green)'; amt.style.color = 'var(--green)';
+    label.textContent = 'FULLY ALLOCATED'; amt.textContent = 'Rs 0';
+  } else if (remaining > 0) {
+    box.style.background = 'rgba(230,126,34,0.1)'; box.style.borderColor = 'rgba(230,126,34,0.3)';
+    label.style.color = 'var(--orange)'; amt.style.color = 'var(--orange)';
+    label.textContent = 'REMAINING'; amt.textContent = 'Rs ' + remaining;
+  } else {
+    box.style.background = 'rgba(192,57,43,0.1)'; box.style.borderColor = 'rgba(192,57,43,0.3)';
+    label.style.color = 'var(--red)'; amt.style.color = 'var(--red)';
+    label.textContent = 'OVER BY'; amt.textContent = 'Rs ' + Math.abs(remaining);
+  }
+}
+
+async function applySplitByCustom() {
+  var total = parseInt(document.getElementById('split-custom-order-total').textContent.replace('Rs ','')) || 0;
+  var rows = splitCustomRows.filter(function(r) { return (r.amount||0) > 0; });
+  if (!rows.length) { showToast('Add at least one payment amount', 'error'); return; }
+  var allocated = rows.reduce(function(s,r){ return s + r.amount; }, 0);
+  if (allocated !== total) {
+    if (!confirm('Allocated Rs ' + allocated + ' but bill total is Rs ' + total + '.\n\nContinue anyway?')) return;
+  }
+
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+
+    currentOrder.kotNo = null; // each split payment needs its own fresh bill number
+    var billNo = await _assignKotNumber();
+    var _splitCustSaleId = genId();
+    var splitSale = {
+      id: _splitCustSaleId,
+      billNo: billNo,
+      table: currentOrder.table, type: currentOrder.type,
+      items: currentOrder.items,
+      total: row.amount, method: row.method,
+      time: currentOrder.startTime ? new Date(currentOrder.startTime) : new Date(), staff: currentStaff, branch: activeBranch,
+      customerName: currentOrder.customerName || '',
+      customerPhone: currentOrder.customerPhone || '',
+      deliveryAddress: '', deliveryCharge: 0,
+      sc: 0, disc: 0, scPct: 0, discType: 'flat', discAmount: 0,
+      kitchenOrderId: currentOrder.id || null,
+      splitCash: 0, splitCard: 0
+    };
+
+    var _splitCustWriteRes = await sbWrite('shift_transactions', 'insert', [{
+      id: _splitCustSaleId, branch: activeBranch, date: todayKey(),
+      bill_no: billNo, type: currentOrder.type,
+      table_loc: currentOrder.table || '',
+      order_started_at: currentOrder.startTime ? new Date(currentOrder.startTime).toISOString() : null,
+      items_text: currentOrder.items.map(function(it){return it.qty+'x '+it.name;}).join(', ') + ' [custom split ' + (i+1) + '/' + rows.length + ']',
+      subtotal: row.amount, sc: 0, sc_pct: 0, discount: 0, delivery_charge: 0,
+      total: row.amount, method: row.method,
+      cash_received: 0, split_cash: 0, split_card: 0,
+      staff: currentStaff,
+      customer_name: currentOrder.customerName || '',
+      customer_phone: currentOrder.customerPhone || '',
+      delivery_address: '', kitchen_order_id: currentOrder.id || null
+    }]);
+    if (_splitCustWriteRes && _splitCustWriteRes.error) {
+      showToast('⚠️ Could not save payment ' + (i+1) + ' of ' + rows.length + ' — check your internet. Stopping; remaining not charged.', 'error');
+      return;
+    }
+    completedOrders.push(splitSale);
+    if (row.method === 'cash') cashInHand += row.amount;
+    salesTotal += row.amount;
+    billCounter++;
+
+    (function(sale, delay) {
+      setTimeout(function() { printReceipt(sale); }, delay);
+    })(splitSale, i * 800);
+  }
+
+  document.getElementById('bar-cash').textContent = 'Rs ' + cashInHand;
+  document.getElementById('bar-billno').textContent = String(billCounter).padStart(3, '0');
+  saveTodaySales();
+
+  var orderIdToUpdate = currentOrder.id;
+  var _splitTable = currentOrder.table;
+
+  var _splitClearOk = true;
+  if (_splitTable) {
+    _splitClearOk = await _saveActiveTable(_splitTable, null);
+  }
+  if (orderIdToUpdate) {
+    await sbWrite('kitchen_orders', 'update',
+      { status: 'PAID', paid_at: new Date().toISOString() },
+      { eq: [['id', orderIdToUpdate]] });
+  }
+
+  if (!_splitClearOk) {
+    showToast('⚠️ Bills recorded, but could not clear the table — check your internet and clear it manually.', 'error');
+  }
+
+  currentOrder = { table: null, type: 'Dine-In', items: [], id: null };
+  switchView('tables');
+  renderTableMap();
+  closeModal('split-modal');
+
+  showToast('Split into ' + rows.length + ' custom payments — recorded ✅', 'success');
 }
 
 function selectSplitMethod(m) {
