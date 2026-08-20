@@ -1133,6 +1133,28 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
   </div>
 </div>
 
+<!-- CLOSE SHIFT DATE RANGE MODAL -->
+<div class="modal-backdrop" id="close-range-modal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-title">🔒 Close Shift — Select Time Range</div>
+    <div class="modal-sub">Closing after midnight? Pick the actual start/end of this business day so the printed report is accurate.</div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:5px;">From</div>
+      <input type="datetime-local" step="60" id="close-range-from"
+        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;outline:none;">
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:5px;">To</div>
+      <input type="datetime-local" step="60" id="close-range-to"
+        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;outline:none;">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="_closeRangeCancel()">Cancel</button>
+      <button class="modal-confirm" onclick="_closeRangeConfirm()">Continue</button>
+    </div>
+  </div>
+</div>
+
 <!-- STAFF / USER MANAGER MODAL -->
 <div class="modal-backdrop" id="staff-modal">
   <div class="modal-box" style="max-width:640px;">
@@ -6316,7 +6338,81 @@ function showToast(msg, type='success') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>t.classList.remove('show'), 2800);
 }
+// ══════════════════════════════════
+// CLOSE-SHIFT DATE RANGE PICKER
+// Used by both closeAllShifts() and closeAllShiftsAndArchive() so a
+// 2-3am close still captures the whole business day, not just "today".
+// ══════════════════════════════════
+let _closeRangeResolve = null;
+
+function getCloseShiftRange() {
+  return new Promise((resolve) => {
+    _closeRangeResolve = resolve;
+    const now = new Date();
+    const toLocal = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    let fromDate;
+    if (shiftStart) {
+      fromDate = new Date(shiftStart); // when this staff member logged in — usually the shift start
+    } else {
+      fromDate = new Date(now);
+      fromDate.setHours(15,0,0,0); // fallback default: 3pm
+      if (fromDate > now) fromDate.setDate(fromDate.getDate()-1);
+    }
+    const fromLocal = new Date(fromDate.getTime() - fromDate.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    document.getElementById('close-range-from').value = fromLocal;
+    document.getElementById('close-range-to').value = toLocal;
+    document.getElementById('close-range-modal').classList.add('open');
+  });
+}
+function _closeRangeCancel() {
+  document.getElementById('close-range-modal').classList.remove('open');
+  if (_closeRangeResolve) { _closeRangeResolve(null); _closeRangeResolve = null; }
+}
+function _closeRangeConfirm() {
+  const fromVal = document.getElementById('close-range-from').value;
+  const toVal = document.getElementById('close-range-to').value;
+  if (!fromVal || !toVal) { showToast('Pick both From and To', 'error'); return; }
+  if (toVal < fromVal) { showToast('"To" must be after "From"', 'error'); return; }
+  document.getElementById('close-range-modal').classList.remove('open');
+  if (_closeRangeResolve) { _closeRangeResolve({ fromVal, toVal }); _closeRangeResolve = null; }
+}
+
+// Fetches shift_transactions for the chosen range directly from Supabase
+// (same pattern as renderClosingReport) and computes the summary figures —
+// deliberately NOT using in-memory completedOrders, since that gets wiped
+// at midnight by startDateRolloverWatcher().
+async function _fetchCloseShiftTotals(fromVal, toVal) {
+  let txs = [];
+  try {
+    const { data } = await sb.from('shift_transactions')
+      .select('*').eq('branch', activeBranch)
+      .gte('created_at', _dtLocalToISO(fromVal)).lte('created_at', _dtLocalToISO(toVal))
+      .order('created_at', { ascending: true });
+    txs = data || [];
+  } catch(e) { txs = []; }
+  txs = mergeInPendingTx(txs, activeBranch, _dtLocalToISO(fromVal), _dtLocalToISO(toVal));
+
+  const allSales = txs.filter(t => !['cash-in','cash-out','void'].includes(t.method));
+  const grandTotal = allSales.reduce((s,t) => s + t.total, 0);
+  const totalCash = allSales.filter(t => t.method === 'cash').reduce((s,t) => s + t.total, 0)
+    + allSales.filter(t => t.method === 'split').reduce((s,t) => s + (t.split_cash||0), 0);
+  const totalCard = allSales.filter(t => ['card','bank','jazzcash','foodpanda'].includes(t.method)).reduce((s,t) => s + t.total, 0)
+    + allSales.filter(t => t.method === 'split').reduce((s,t) => s + (t.split_card||0), 0);
+  const cashOuts = txs.filter(t => t.method === 'cash-out').reduce((s,t) => s + Math.abs(t.total), 0);
+  const expenses = txs.filter(t => t.method === 'expense').reduce((s,t) => s + Math.abs(t.total), 0);
+
+  const fromDateOnly = fromVal.slice(0,10);
+  const _obResult = await fetchOpeningBalance(activeBranch, fromDateOnly);
+  const opening = _obResult.amount || 0;
+
+  const finalHandOver = computeCashInHand(txs, opening);
+
+  return { txs, allSales, grandTotal, totalCash, totalCard, cashOuts, expenses, opening, finalHandOver };
+}
+
 async function closeAllShifts() {
+  const _closeRange = await getCloseShiftRange();
+  if (!_closeRange) { showToast('Close cancelled', 'error'); return; }
   if (sb) {
     try {
       const { data: existingClose } = await sb.from('shift_closures')
@@ -6361,30 +6457,31 @@ async function closeAllShifts() {
     );
   }
 
+  // Fetch totals for the ACTUAL range chosen at the start — not just
+  // "today" — since local completedOrders may already be wiped by the
+  // midnight date-rollover watcher.
+  const _stats = await _fetchCloseShiftTotals(_closeRange.fromVal, _closeRange.toVal);
+
   // CRITICAL: the actual closure record — must succeed or we abort the reset.
   const _closureResult = await sbWrite('shift_closures', 'insert', [{
     branch: activeBranch,
     date: closedDate,
     closed_at: new Date().toISOString(),
     closed_by: currentStaff,
-    final_total: completedOrders
-      .filter(o => !['cash-in','cash-out'].includes(o.method))
-      .reduce((s,o) => s + o.total, 0),
-    bills_count: completedOrders.filter(o => !['cash-in','cash-out'].includes(o.method)).length
+    final_total: _stats.grandTotal,
+    bills_count: _stats.allSales.length
   }]);
   const _closeGotQueued = !!(_closureResult && _closureResult.error);
 
-  // Capture totals BEFORE clearing
-  const allSales = completedOrders.filter(o => !['cash-in','cash-out','void'].includes(o.method));
-  const grandTotal = allSales.reduce((s,o) => s + o.total, 0);
-  const totalCash = allSales.filter(o => o.method === 'cash').reduce((s,o) => s + o.total, 0)
-    + allSales.filter(o => o.method === 'split').reduce((s,o) => s + (o.splitCash||0), 0);
-  const totalCard = allSales.filter(o => o.method === 'card').reduce((s,o) => s + o.total, 0)
-    + allSales.filter(o => o.method === 'split').reduce((s,o) => s + (o.splitCard||0), 0);
-  const cashOuts = completedOrders.filter(o => o.method === 'cash-out').reduce((s,o) => s + Math.abs(o.total), 0);
-  const finalHandOver = openingBalance + totalCash - cashOuts;
-  const savedOpeningBalance = openingBalance;
+  const grandTotal = _stats.grandTotal;
+  const totalCash = _stats.totalCash;
+  const totalCard = _stats.totalCard;
+  const cashOuts = _stats.cashOuts;
+  const expenses = _stats.expenses;
+  const finalHandOver = _stats.finalHandOver;
+  const savedOpeningBalance = _stats.opening;
   const savedBranch = activeBranch;
+  const _rangeLabel = _closeRange.fromVal.replace('T',' ') + ' → ' + _closeRange.toVal.replace('T',' ');
 
   document.getElementById('print-area').innerHTML = `
     <div style="font-family:'Courier New',monospace;color:black;padding:10px;width:72mm;">
@@ -6393,13 +6490,15 @@ async function closeAllShifts() {
         FINAL CLOSE — ${savedBranch}
       </div>
       <div style="font-size:11px;text-align:center;margin-bottom:8px;">
-        ${new Date().toLocaleString('en-PK')}
+        ${_rangeLabel}
       </div>
       <div style="font-size:13px;line-height:2;">
-        <div style="display:flex;justify-content:space-between;"><span>Total Bills:</span><b>${allSales.length}</b></div>
+        <div style="display:flex;justify-content:space-between;"><span>Total Bills:</span><b>${_stats.allSales.length}</b></div>
         <div style="display:flex;justify-content:space-between;"><span>Grand Total:</span><b>Rs ${grandTotal}</b></div>
         <div style="display:flex;justify-content:space-between;"><span>Cash Total:</span><span>Rs ${totalCash}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Card Total:</span><span>Rs ${totalCard}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Cash Outs:</span><span>Rs ${cashOuts}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Expenses:</span><span>Rs ${expenses}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Opening:</span><span>Rs ${savedOpeningBalance}</span></div>
         <div style="display:flex;justify-content:space-between;border-top:2px solid #000;padding-top:4px;margin-top:4px;">
           <span><b>HAND OVER:</b></span>
@@ -6407,7 +6506,7 @@ async function closeAllShifts() {
         </div>
       </div>
       <div style="border-top:2px dashed #000;margin-top:10px;padding-top:6px;text-align:center;font-size:12px;font-weight:bold;">
-        ALL SHIFTS CLOSED<br>System Reset Complete
+        ALL SHIFTS CLOSED<br>System Reset Complete<br>Printed by ${currentStaff} — ${new Date().toLocaleString('en-PK')}
       </div>
     </div>
   `;
@@ -6453,6 +6552,8 @@ async function closeAllShifts() {
 }
 
 async function closeAllShiftsAndArchive() {
+  const _closeRange = await getCloseShiftRange();
+  if (!_closeRange) { showToast('Close cancelled', 'error'); return; }
   if (sb) {
     try {
       const { data: existingClose } = await sb.from('shift_closures')
@@ -6497,27 +6598,31 @@ async function closeAllShiftsAndArchive() {
     } catch(e) { console.warn('kitchen_orders close (non-critical):', e.message); }
   }
 
+  // Fetch totals for the ACTUAL range chosen at the start — not just
+  // "today" — since local completedOrders may already be wiped by the
+  // midnight date-rollover watcher.
+  const _stats = await _fetchCloseShiftTotals(_closeRange.fromVal, _closeRange.toVal);
+
   // CRITICAL: the actual closure record — must succeed or we abort the reset.
   const _archiveResult = await sbWrite('shift_closures', 'insert', [{
     branch: activeBranch,
     date: closedDate,
     closed_at: new Date().toISOString(),
     closed_by: currentStaff,
-    final_total: completedOrders
-      .filter(o => !['cash-in','cash-out'].includes(o.method))
-      .reduce((s,o) => s + o.total, 0),
-    bills_count: completedOrders.filter(o => !['cash-in','cash-out'].includes(o.method)).length
+    final_total: _stats.grandTotal,
+    bills_count: _stats.allSales.length
   }]);
   const _archiveGotQueued = !!(_archiveResult && _archiveResult.error);
 
-  // Capture totals BEFORE clearing
-  const allSales = completedOrders.filter(o => !['cash-in','cash-out','void'].includes(o.method));
-  const grandTotal = allSales.reduce((s,o) => s + o.total, 0);
-  const totalCash = allSales.filter(o => o.method === 'cash').reduce((s,o) => s + o.total, 0)
-    + allSales.filter(o => o.method === 'split').reduce((s,o) => s + (o.splitCash||0), 0);
-  const cashOuts = completedOrders.filter(o => o.method === 'cash-out').reduce((s,o) => s + Math.abs(o.total), 0);
-  const finalHandOver = openingBalance + totalCash - cashOuts;
+  const grandTotal = _stats.grandTotal;
+  const totalCash = _stats.totalCash;
+  const totalCard = _stats.totalCard;
+  const cashOuts = _stats.cashOuts;
+  const expenses = _stats.expenses;
+  const finalHandOver = _stats.finalHandOver;
+  const savedOpeningBalance = _stats.opening;
   const savedBranch = activeBranch;
+  const _rangeLabel = _closeRange.fromVal.replace('T',' ') + ' → ' + _closeRange.toVal.replace('T',' ');
 
   document.getElementById('print-area').innerHTML = `
     <div style="font-family:'Courier New',monospace;color:black;padding:10px;width:72mm;">
@@ -6526,17 +6631,21 @@ async function closeAllShiftsAndArchive() {
         ${savedBranch} — SHIFT CLOSED
       </div>
       <div style="font-size:11px;text-align:center;margin-bottom:8px;">
-        ${new Date().toLocaleString('en-PK')}
+        ${_rangeLabel}
       </div>
       <div style="font-size:13px;line-height:1.8;">
-        <div style="display:flex;justify-content:space-between;"><span>Total Bills:</span><b>${allSales.length}</b></div>
+        <div style="display:flex;justify-content:space-between;"><span>Total Bills:</span><b>${_stats.allSales.length}</b></div>
         <div style="display:flex;justify-content:space-between;"><span>Grand Total:</span><b>Rs ${grandTotal}</b></div>
         <div style="display:flex;justify-content:space-between;"><span>Cash:</span><span>Rs ${totalCash}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>Hand Over:</span><b>Rs ${finalHandOver}</b></div>
+        <div style="display:flex;justify-content:space-between;"><span>Card:</span><span>Rs ${totalCard}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Cash Outs:</span><span>Rs ${cashOuts}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Expenses:</span><span>Rs ${expenses}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Opening:</span><span>Rs ${savedOpeningBalance}</span></div>
+        <div style="display:flex;justify-content:space-between;border-top:2px solid #000;padding-top:4px;margin-top:4px;"><span><b>Hand Over:</b></span><b>Rs ${finalHandOver}</b></div>
       </div>
       <div style="border-top:2px dashed #000;margin-top:10px;padding-top:6px;text-align:center;font-size:11px;">
         <b>SHIFT ARCHIVED</b><br>
-        New shift starts from 0
+        New shift starts from 0<br>Printed by ${currentStaff} — ${new Date().toLocaleString('en-PK')}
       </div>
     </div>
   `;
