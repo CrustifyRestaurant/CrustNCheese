@@ -1151,6 +1151,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
         <label><input type="checkbox" id="ns-perm-admin_tools"> Close-All-Shifts / Admin Tools</label>
 <label><input type="checkbox" id="ns-perm-print_logout" checked> Print Logout Receipt</label>
 <label><input type="checkbox" id="ns-perm-expense" checked> Record Expenses</label>
+<label><input type="checkbox" id="ns-perm-credit"> Customer Credit</label>
       </div>
     </div>
 
@@ -2126,7 +2127,7 @@ async function applyPOSOverrides() {
 // ══════════════════════════════════
 // STAFF / USER MANAGEMENT (admin only)
 // ══════════════════════════════════
-const PERM_KEYS = ['cash','closing','history','delivery','analytics','void','view_totals','admin_tools','print_logout','expense'];
+const PERM_KEYS = ['cash','closing','history','delivery','analytics','void','view_totals','admin_tools','print_logout','expense','credit'];
 
 function applyPOSPermissions() {
   const perms = currentStaffPermissions || {};
@@ -2147,6 +2148,7 @@ function applyPOSPermissions() {
   gate('btn-manage-staff', isAdmin || perms.admin_tools === true);
   gate('cash-expense-btn', isAdmin || perms.expense !== false);
   gate('nav-expense-standalone', isAdmin || perms.expense !== false);
+    gate('nav-credit', isAdmin || perms.credit === true);
 
   const cashWrap = document.getElementById('bar-cash-wrap');
   if (cashWrap) cashWrap.style.display = (isAdmin || perms.view_totals !== false) ? '' : 'none';
@@ -2201,6 +2203,7 @@ async function renderStaffTable() {
           <label><input type="checkbox" id="sp_${s.id}_admin_tools" ${p.admin_tools===true?'checked':''}> Admin Tools</label>
           <label><input type="checkbox" id="sp_${s.id}_print_logout" ${p.print_logout!==false?'checked':''}> Print Logout Receipt</label>
           <label><input type="checkbox" id="sp_${s.id}_expense" ${p.expense!==false?'checked':''}> Record Expenses</label>
+          <label><input type="checkbox" id="sp_${s.id}_credit" ${p.credit===true?'checked':''}> Customer Credit</label>
         </div>
         <button onclick="saveStaffPermissions('${s.id}')" style="padding:6px 14px;border-radius:7px;background:var(--purple);color:white;border:none;font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">💾 Save Access</button>
       </td>
@@ -2623,7 +2626,7 @@ async function confirmAndPrintSlip() {
 function switchView(v) {
   const isAdmin = currentStaffRole === 'Admin' || currentStaffRole === 'Manager';
   const perms = currentStaffPermissions || {};
-  const blocked = { cash: perms.cash===false, closing: perms.closing===false, history: perms.history===false, delivery: perms.delivery===false };
+  const blocked = { cash: perms.cash===false, closing: perms.closing===false, history: perms.history===false, delivery: perms.delivery===false, credit: perms.credit!==true };
   if (!isAdmin && blocked[v]) { showToast('Access denied', 'error'); v = 'tables'; }
 
   document.querySelectorAll('.pos-view').forEach(x => x.classList.remove('active'));
@@ -4912,8 +4915,41 @@ async function openIssueCreditModal() {
   const itemsText = prompt('Items taken (e.g. 2x Zinger Burger, 1x Fries):') || '';
   const amt = parseFloat(prompt('Amount owed (Rs):')) || 0;
   if (!amt || amt <= 0) { showToast('Valid amount required', 'error'); return; }
-  const dueDate = prompt('Due date (YYYY-MM-DD) — optional, leave blank to skip:') || null;
 
+  // Look for an existing open account for this customer — match by phone
+  // (or name if no phone given) — so repeat customers accumulate credit
+  // on one record instead of a fresh row every visit.
+  let existing = null;
+  if (sb) {
+    try {
+      let q = sb.from('credit_accounts').select('*').eq('branch', activeBranch).neq('status', 'paid');
+      q = phone.trim() ? q.eq('phone', phone.trim()) : q.eq('customer_name', name.trim());
+      const { data } = await q.order('issued_at', { ascending: false }).limit(1);
+      if (data && data.length) existing = data[0];
+    } catch(e) {}
+  }
+
+  if (existing) {
+    const addToExisting = confirm(
+      existing.customer_name + ' already has an open credit account (Rs ' +
+      Math.max(0, existing.amount - (existing.paid_amount||0)) + ' owed).\n\n' +
+      'OK = Add this new amount to their existing balance\n' +
+      'Cancel = Create a separate new account'
+    );
+    if (addToExisting) {
+      const newAmount = existing.amount + amt;
+      const newItemsText = (existing.items_text ? existing.items_text + ' | ' : '') + itemsText.trim();
+      const res = await sbWrite('credit_accounts', 'update',
+        { amount: newAmount, items_text: newItemsText, status: 'unpaid' },
+        { eq: [['id', existing.id]] });
+      if (res && res.error) { showToast('⚠️ Could not update credit — check internet', 'error'); return; }
+      showToast('Added Rs ' + amt + ' to ' + existing.customer_name + '\'s balance', 'success');
+      renderCreditView();
+      return;
+    }
+  }
+
+  const dueDate = prompt('Due date (YYYY-MM-DD) — optional, leave blank to skip:') || null;
   const res = await sbWrite('credit_accounts', 'insert', [{
     id: genId(), branch: activeBranch, customer_name: name.trim(), phone: phone.trim(),
     items_text: itemsText.trim(), amount: amt, paid_amount: 0, status: 'unpaid',
