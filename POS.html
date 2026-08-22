@@ -6,6 +6,7 @@
 <title>CrustNCheese POS v2</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 <style>
 :root {
   --red:#c0392b;--dark-red:#922b21;--orange:#e67e22;--dark-orange:#a04000;
@@ -1432,13 +1433,13 @@ const menuData = {
     {n:"Extra Chicken Topping (Large)",p:120},
     {n:"Extra Cheese Topping (Large)",p:120},
     {n:"Black Olive",p:70},
-    {n:"Zinger Fillet",p:140},
-    {n:"Cheese Slice",p:170},
-    {n:"CrustNCheese Special Dip",p:70}
+    {n:"Zinger Fillet",p:250},
+    {n:"Cheese Slice",p:50},
+    {n:"CrustNCheese Special Dip",p:50}
   ],
   "Drinks":[
-    {n:"Coke Buddy",p:70},{n:"Sprite Buddy",p:70},{n:"Coke 1 Liter",p:130},{n:"Next Cola 1 Liter",p:130},{n:"Next Cola 1.5L",p:170},{n:"Sprite 1.5L",p:230},{n:"Water Small",p:50},{n:"Water Large",p:120}
-  ]
+    {n:"Coke Buddy",p:70},{n:"Sprite Buddy",p:70},{n:"Coke 1 Liter",p:130},{n:"Next Cola 1 Liter",p:130},{n:"Next Cola 1.5L",p:170},{n:"Sprite 1.5L",p:230},{n:"Water Small",p:50},{n:"Water Large",p:120},{n:"Half Liter Drink",p:100}
+  ],
 };
 const dealsData=[
   {n:"1 Small Pizza + Drink",d:"1 Small Pizza with Drink",p:450},
@@ -5732,11 +5733,83 @@ async function printClosingReport() {
     setTimeout(() => { document.getElementById('print-area').innerHTML=''; }, 3000);
   }, 500);
 }
+const XL_COLORS = {
+  headerDark:   'FF1C1F27',
+  brandRed:     'FFC0392B',
+  brandOrange:  'FFE67E22',
+  brandGreen:   'FF27AE60',
+  brandBlue:    'FF2980B9',
+  brandPurple:  'FF8E44AD',
+  brandGold:    'FFD4AF37',
+  lightRed:     'FFFBE5E3',
+  lightOrange:  'FFFCEEDD',
+  lightGreen:   'FFE6F6ED',
+  lightBlue:    'FFE8F1F8',
+  lightPurple:  'FFF1E6F7',
+  lightGold:    'FFFAF3DD',
+  white:        'FFFFFFFF',
+  greyText:     'FF555D70',
+  zebraGrey:    'FFF6F7F9'
+};
+ 
+function _xlHeaderRow(ws, title, colSpan, bgColor, fontColor) {
+  const row = ws.addRow([title]);
+  ws.mergeCells(row.number, 1, row.number, colSpan);
+  row.height = 22;
+  row.getCell(1).font = { bold: true, size: 12, color: { argb: fontColor || XL_COLORS.white } };
+  row.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  for (let c = 1; c <= colSpan; c++) {
+    row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+  }
+  return row;
+}
+ 
+function _xlColumnHeader(ws, labels, bgColor) {
+  const row = ws.addRow(labels);
+  row.eachCell(cell => {
+    cell.font = { bold: true, size: 10, color: { argb: XL_COLORS.white } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FFFFFFFF' } } };
+  });
+  row.height = 18;
+  return row;
+}
+ 
+function _xlDataRow(ws, values, opts = {}) {
+  const row = ws.addRow(values);
+  row.eachCell((cell, colNumber) => {
+    cell.font = { size: 10, color: { argb: opts.textColor || 'FF1C1F27' } };
+    cell.alignment = { vertical: 'middle', horizontal: colNumber === 1 ? 'left' : 'center', wrapText: true };
+    if (opts.zebra) {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_COLORS.zebraGrey } };
+    } else if (opts.fill) {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: opts.fill } };
+    }
+    cell.border = { bottom: { style: 'hair', color: { argb: 'FFE0E0E0' } } };
+  });
+  if (opts.bold) row.font = { bold: true };
+  return row;
+}
+ 
+function _xlSummaryLine(ws, label, value, opts = {}) {
+  const row = ws.addRow(['', label, '', '', '', '', '', '', value]);
+  ws.mergeCells(row.number, 2, row.number, 8);
+  row.getCell(2).font = { size: 11, bold: !!opts.bold, color: { argb: opts.labelColor || 'FF1C1F27' } };
+  row.getCell(9).font = { size: 12, bold: true, color: { argb: opts.valueColor || 'FF1C1F27' } };
+  row.getCell(9).alignment = { horizontal: 'right' };
+  if (opts.fill) {
+    row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: opts.fill } };
+    row.getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: opts.fill } };
+  }
+  return row;
+}
+ 
 async function exportClosingExcel() {
   const fromVal = document.getElementById('closing-date-from').value || (todayKey() + 'T00:00');
   const toVal   = document.getElementById('closing-date-to').value   || (todayKey() + 'T23:59');
   const fromDate = fromVal.slice(0,10), toDate = toVal.slice(0,10);
-
+ 
   let txs = [];
   try {
     const { data } = await sb.from('shift_transactions')
@@ -5748,97 +5821,195 @@ async function exportClosingExcel() {
   txs = mergeInPendingTx(txs, activeBranch, _dtLocalToISO(fromVal), _dtLocalToISO(toVal));
   const pendingCount = txs.filter(t => t._pending).length;
   if (pendingCount) showToast(pendingCount + ' sale(s) not yet synced — included from local queue', 'error');
-
+ 
   if (!txs.length) { showToast('No data to export for selected range', 'error'); return; }
-
-  const dateStr = fromDate === toDate ? fromDate : (fromDate + '_to_' + toDate);
-  const lines = [];
-
-  lines.push(`CrustNCheese — ${activeBranch} BRANCH`);
-  lines.push(`Day Closing Report — ${fromDate === toDate ? fromDate : fromDate + ' to ' + toDate}`);
-  lines.push(`Exported by: ${currentStaff} — ${new Date().toLocaleString('en-PK')}`);
-  lines.push('');
-
+ 
+  showToast('Building Excel report...', 'success');
+ 
   const sales = txs.filter(t => !['cash-in','cash-out'].includes(t.method));
   const billsOnly = sales.filter(t => !['void','return','expense','discarded','deleted-delivery','item-void'].includes(t.method));
+  const dinein   = billsOnly.filter(t => t.type === 'Dine-In');
+  const takeaway = billsOnly.filter(t => t.type === 'Takeaway');
+  const delivery = billsOnly.filter(t => t.type === 'Delivery');
+  const voids      = sales.filter(t => t.method === 'void');
+  const returns     = sales.filter(t => t.method === 'return');
+  const discarded   = sales.filter(t => t.method === 'discarded');
+  const itemVoids    = sales.filter(t => t.method === 'item-void');
+  const deletedDel   = sales.filter(t => t.method === 'deleted-delivery');
+  const cashIns  = txs.filter(t => t.method === 'cash-in');
+  const cashOuts = txs.filter(t => t.method === 'cash-out');
+  const expenses = sales.filter(t => t.method === 'expense');
+ 
   const total = billsOnly.reduce((s,t) => s + t.total, 0);
-  const cash  = billsOnly.filter(t=>t.method==='cash').reduce((s,t)=>s+t.total,0)
-    + billsOnly.filter(t=>t.method==='split').reduce((s,t)=>s+(t.split_cash||0),0);
-  const card  = billsOnly.filter(t=>['card','bank','jazzcash','foodpanda'].includes(t.method)).reduce((s,t)=>s+t.total,0)
-    + billsOnly.filter(t=>t.method==='split').reduce((s,t)=>s+(t.split_card||0),0);
-  const scCollected = billsOnly.reduce((s,t)=>s+(t.sc||0),0);
-  const discGiven = billsOnly.reduce((s,t)=>s+(t.discount||0),0);
-  const delFeesCollected = billsOnly.filter(t=>t.type==='Delivery').reduce((s,t)=>s+(t.delivery_charge||0),0);
-  const cashOuts = txs.filter(t=>t.method==='cash-out').reduce((s,t)=>s+Math.abs(t.total),0);
-  const expenses = sales.filter(t=>t.method==='expense').reduce((s,t)=>s+Math.abs(t.total),0);
-  const returns = sales.filter(t=>t.method==='return');
-  const returnTotal = returns.reduce((s,t)=>s+Math.abs(t.total),0);
-  const voids = sales.filter(t=>t.method==='void');
-  const voidTotal = voids.reduce((s,t)=>s+Math.abs(t.total),0);
-
+  const delFeesOnly = delivery.reduce((s,t) => s + (t.delivery_charge||0), 0);
+  const shopTotal = total - delFeesOnly;
+  const totalCash = billsOnly.filter(t => t.method === 'cash').reduce((s,t) => s + t.total, 0)
+    + billsOnly.filter(t => t.method === 'split').reduce((s,t) => s + (t.split_cash||0), 0);
+  const totalCard = billsOnly.filter(t => ['card','bank','jazzcash','foodpanda'].includes(t.method)).reduce((s,t) => s + t.total, 0)
+    + billsOnly.filter(t => t.method === 'split').reduce((s,t) => s + (t.split_card||0), 0);
+  const scCollected = billsOnly.reduce((s,t) => s + (t.sc||0), 0);
+  const discGiven = billsOnly.reduce((s,t) => s + (t.discount||0), 0);
+  const cashOutTotal = cashOuts.reduce((s,t) => s + Math.abs(t.total), 0);
+  const expenseTotal = expenses.reduce((s,t) => s + Math.abs(t.total), 0);
+  const avg = billsOnly.length ? Math.round(shopTotal/billsOnly.length) : 0;
+ 
   const _obResult = await fetchOpeningBalance(activeBranch, fromDate);
-  let opening = _obResult.amount;
-  if (!_obResult.ok) {
-    showToast('⚠️ Could not verify opening balance (offline) — treating as Rs 0, figures below may be off until reconnected.', 'error');
+  const opening = _obResult.amount;
+  const expected = computeCashInHand(txs, opening);
+ 
+  const riderOf = (raw) => { const m = (raw||'').match(/\[Rider:\s*([^\]]+)\]/); return m ? m[1].trim() : '—'; };
+  const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-PK', {hour:'2-digit',minute:'2-digit',hour12:true});
+  const clean = (s) => (s||'—').toString().replace(/\[Rider:.*?\]/g,'').replace(/\n/g,' | ').trim() || '—';
+ 
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Closing Report', { views: [{ state: 'frozen', ySplit: 0 }] });
+  ws.columns = [
+    { width: 14 }, { width: 20 }, { width: 22 }, { width: 34 },
+    { width: 14 }, { width: 10 }, { width: 12 }, { width: 12 }, { width: 14 }
+  ];
+ 
+  // ── TITLE BLOCK ──
+  _xlHeaderRow(ws, `CrustNCheese — ${BRANCHES[activeBranch].name.toUpperCase()} BRANCH`, 9, XL_COLORS.headerDark);
+  _xlHeaderRow(ws, `DAY CLOSING REPORT   |   ${fromVal.replace('T',' ')} → ${toVal.replace('T',' ')}`, 9, XL_COLORS.brandRed);
+  const metaRow = ws.addRow([`Exported by: ${currentStaff}   |   ${new Date().toLocaleString('en-PK')}`]);
+  ws.mergeCells(metaRow.number, 1, metaRow.number, 9);
+  metaRow.getCell(1).font = { italic: true, size: 9, color: { argb: XL_COLORS.greyText } };
+  ws.addRow([]);
+ 
+  // ── SUMMARY ──
+  _xlHeaderRow(ws, '📊 SUMMARY', 9, XL_COLORS.brandGreen);
+  _xlSummaryLine(ws, 'Shop Sales', 'Rs ' + shopTotal);
+  _xlSummaryLine(ws, 'Delivery Fees', 'Rs ' + delFeesOnly);
+  _xlSummaryLine(ws, 'Bills Issued', billsOnly.length);
+  _xlSummaryLine(ws, 'Average Bill Value', 'Rs ' + avg);
+  _xlSummaryLine(ws, 'Cash Collected', 'Rs ' + totalCash);
+  _xlSummaryLine(ws, 'Card / Digital Collected', 'Rs ' + totalCard);
+  _xlSummaryLine(ws, 'Service Charge Collected', 'Rs ' + scCollected);
+  _xlSummaryLine(ws, 'Discounts Given', 'Rs ' + discGiven, { labelColor: XL_COLORS.brandRed });
+  _xlSummaryLine(ws, 'Cash Outs', 'Rs ' + cashOutTotal, { labelColor: XL_COLORS.brandRed });
+  _xlSummaryLine(ws, 'Expenses', 'Rs ' + expenseTotal, { labelColor: XL_COLORS.brandRed });
+  _xlSummaryLine(ws, 'Opening Balance', 'Rs ' + opening);
+  _xlSummaryLine(ws, 'EXPECTED IN DRAWER', 'Rs ' + expected, { bold: true, fill: XL_COLORS.lightGreen, valueColor: XL_COLORS.brandGreen });
+  ws.addRow([]);
+ 
+  // ── Helper to dump a type-section table ──
+  const colHeaders = ['Bill#','Time','Table/Location','Items','Method','SC','Del Fee','Discount','Total'];
+  function dumpTypeSection(title, list, headerColor, lightFill) {
+    _xlHeaderRow(ws, `${title}  (${list.length} bills)`, 9, headerColor);
+    if (!list.length) {
+      _xlDataRow(ws, ['No transactions in this range', '', '', '', '', '', '', '', ''], { fill: lightFill });
+    } else {
+      _xlColumnHeader(ws, colHeaders, headerColor);
+      list.forEach((t, i) => {
+        _xlDataRow(ws, [
+          t.bill_no || '—', timeOf(t.created_at), clean(t.table_loc), clean(t.items_text),
+          (t.method||'—').toUpperCase(), t.sc || 0, t.delivery_charge || 0, t.discount || 0, t.total
+        ], { zebra: i % 2 === 1, fill: i % 2 === 0 ? lightFill : null });
+      });
+      const subtotal = list.reduce((s,t) => s + t.total, 0);
+      _xlDataRow(ws, ['', '', '', '', '', '', '', 'SUBTOTAL', 'Rs ' + subtotal], { bold: true, fill: lightFill });
+    }
+    ws.addRow([]);
   }
-
-  lines.push('SUMMARY');
-  lines.push(`Total Sales,Rs ${total}`);
-  lines.push(`Bills Issued,${billsOnly.length}`);
-  lines.push(`Cash Collected,Rs ${cash}`);
-  lines.push(`Card Collected,Rs ${card}`);
-  lines.push(`SC Collected,Rs ${scCollected}`);
-  lines.push(`Discounts Given,Rs ${discGiven}`);
-  lines.push(`Delivery Fees,Rs ${delFeesCollected}`);
-  lines.push(`Returns,Rs ${returnTotal}`);
-  lines.push(`Voids,Rs ${voidTotal}`);
-  lines.push(`Cash Outs,Rs ${cashOuts}`);
-  lines.push(`Expenses,Rs ${expenses}`);
-  lines.push(`Opening Balance,Rs ${opening}`);
-  lines.push(`Total to Hand Over,Rs ${computeCashInHand(txs, opening)}`);
-  lines.push('');
-
-  lines.push('ALL TRANSACTIONS');
-  lines.push('Bill#,Date,Time,Type,Table,Items,Payment Method,SC,Discount,Total,Staff');
-  txs.forEach(t => {
-    const time = new Date(t.created_at).toLocaleTimeString('en-PK', { hour:'2-digit', minute:'2-digit', hour12:true });
-    const clean = str => (str||'—').toString().replace(/,/g,';').replace(/\n/g,' | ').trim();
-    lines.push(`${t.bill_no||'—'},${t.date||'—'},${time},${t.type||'—'},${clean(t.table_loc)},${clean(t.items_text)},${t.method||'—'},${t.sc||0},${t.discount||0},${Math.abs(t.total)},${t.staff||'—'}`);
+ 
+  dumpTypeSection('🍽️  DINE-IN SALES', dinein, XL_COLORS.brandBlue, XL_COLORS.lightBlue);
+  dumpTypeSection('🥡  TAKEAWAY SALES', takeaway, XL_COLORS.brandGreen, XL_COLORS.lightGreen);
+ 
+  // Delivery gets a Rider column instead of plain table
+  _xlHeaderRow(ws, `🚚  DELIVERY SALES  (${delivery.length} bills)`, 9, XL_COLORS.brandOrange);
+  if (!delivery.length) {
+    _xlDataRow(ws, ['No delivery transactions in this range','','','','','','','',''], { fill: XL_COLORS.lightOrange });
+  } else {
+    _xlColumnHeader(ws, ['Bill#','Time','Address','Items','Rider','Del Fee','Discount','Total','Staff'], XL_COLORS.brandOrange);
+    delivery.forEach((t,i) => {
+      _xlDataRow(ws, [
+        t.bill_no||'—', timeOf(t.created_at), clean(t.delivery_address || t.table_loc), clean(t.items_text),
+        riderOf(t.items_text), t.delivery_charge||0, t.discount||0, t.total, t.staff||'—'
+      ], { zebra: i % 2 === 1, fill: i % 2 === 0 ? XL_COLORS.lightOrange : null });
+    });
+    const delSub = delivery.reduce((s,t)=>s+t.total,0);
+    _xlDataRow(ws, ['','','','','','','SUBTOTAL','Rs '+delSub,''], { bold: true, fill: XL_COLORS.lightOrange });
+  }
+  ws.addRow([]);
+ 
+  // ── VOIDS / RETURNS / DISCARDED / ITEM REMOVALS / DELETED DELIVERY ──
+  const adjustments = [
+    ...voids.map(t => ({...t, _cat:'VOID'})),
+    ...returns.map(t => ({...t, _cat:'RETURN'})),
+    ...discarded.map(t => ({...t, _cat:'DISCARDED'})),
+    ...itemVoids.map(t => ({...t, _cat:'ITEM REMOVED'})),
+    ...deletedDel.map(t => ({...t, _cat:'DELETED DELIVERY'})),
+  ];
+  _xlHeaderRow(ws, `🗑️  VOIDS, RETURNS & CANCELLATIONS  (${adjustments.length} entries)`, 9, XL_COLORS.brandRed);
+  if (!adjustments.length) {
+    _xlDataRow(ws, ['None in this range','','','','','','','',''], { fill: XL_COLORS.lightRed });
+  } else {
+    _xlColumnHeader(ws, ['Category','Bill#','Time','Table','Items','Amount','Staff','Reason',''], XL_COLORS.brandRed);
+    adjustments.forEach((t,i) => {
+      _xlDataRow(ws, [
+        t._cat, t.bill_no||'—', timeOf(t.created_at), clean(t.table_loc), clean(t.items_text),
+        'Rs ' + Math.abs(t.total), t.staff||'—', clean(t.return_reason), ''
+      ], { zebra: i % 2 === 1, fill: i % 2 === 0 ? XL_COLORS.lightRed : null, textColor: XL_COLORS.brandRed });
+    });
+    const adjTotal = adjustments.reduce((s,t)=>s+Math.abs(t.total),0);
+    _xlDataRow(ws, ['','','','','','TOTAL','Rs '+adjTotal,'',''], { bold: true, fill: XL_COLORS.lightRed });
+  }
+  ws.addRow([]);
+ 
+  // ── CASH MOVEMENTS (Cash In / Cash Out / Expenses) ──
+  const movements = [
+    ...cashIns.map(t => ({...t, _cat:'CASH IN', _sign: 1})),
+    ...cashOuts.map(t => ({...t, _cat:'CASH OUT', _sign: -1})),
+    ...expenses.map(t => ({...t, _cat:'EXPENSE', _sign: -1})),
+  ];
+  _xlHeaderRow(ws, `💰  CASH MOVEMENTS  (${movements.length} entries)`, 9, XL_COLORS.brandGold, 'FF1C1F27');
+  if (!movements.length) {
+    _xlDataRow(ws, ['None in this range','','','','','','','',''], { fill: XL_COLORS.lightGold });
+  } else {
+    _xlColumnHeader(ws, ['Category','Time','Description','','','','Amount','Staff',''], XL_COLORS.brandGold);
+    movements.forEach((t,i) => {
+      _xlDataRow(ws, [
+        t._cat, timeOf(t.created_at), clean(t.return_reason || t.items_text), '', '', '',
+        (t._sign > 0 ? '+' : '-') + 'Rs ' + Math.abs(t.total), t.staff||'—', ''
+      ], {
+        zebra: i % 2 === 1,
+        fill: i % 2 === 0 ? XL_COLORS.lightGold : null,
+        textColor: t._sign > 0 ? '00' + XL_COLORS.brandGreen.slice(2) : '00' + XL_COLORS.brandRed.slice(2)
+      });
+    });
+  }
+  ws.addRow([]);
+ 
+  // ── PER STAFF BREAKDOWN ──
+  const staffNames = [...new Set(txs.map(t => t.staff).filter(Boolean))];
+  _xlHeaderRow(ws, `👥  PER STAFF BREAKDOWN`, 9, XL_COLORS.brandPurple);
+  _xlColumnHeader(ws, ['Staff','Bills','Shop Sales','Del Fees','Cash','Card','Discounts','Voids',''], XL_COLORS.brandPurple);
+  staffNames.forEach((name, i) => {
+    const sBills = billsOnly.filter(t => t.staff === name);
+    const sTotal = sBills.reduce((s,t)=>s+t.total,0);
+    const sDelFees = sBills.filter(t=>t.type==='Delivery').reduce((s,t)=>s+(t.delivery_charge||0),0);
+    const sShop = sTotal - sDelFees;
+    const sCash = sBills.filter(t=>t.method==='cash').reduce((s,t)=>s+t.total,0) + sBills.filter(t=>t.method==='split').reduce((s,t)=>s+(t.split_cash||0),0);
+    const sCard = sBills.filter(t=>['card','bank','jazzcash','foodpanda'].includes(t.method)).reduce((s,t)=>s+t.total,0) + sBills.filter(t=>t.method==='split').reduce((s,t)=>s+(t.split_card||0),0);
+    const sDisc = sBills.reduce((s,t)=>s+(t.discount||0),0);
+    const sVoids = voids.filter(t => t.staff === name).length;
+    _xlDataRow(ws, [name, sBills.length, 'Rs '+sShop, 'Rs '+sDelFees, 'Rs '+sCash, 'Rs '+sCard, 'Rs '+sDisc, sVoids, ''],
+      { zebra: i % 2 === 1, fill: i % 2 === 0 ? XL_COLORS.lightPurple : null });
   });
-  lines.push('');
-
-  if (voids.length) {
-    lines.push('VOID DETAILS');
-    lines.push('Date,Time,Table,Type,Items,Amount,Staff,Reason');
-    voids.forEach(v => {
-      const time = new Date(v.created_at).toLocaleTimeString('en-PK', { hour:'2-digit', minute:'2-digit', hour12:true });
-      const clean = str => (str||'—').toString().replace(/,/g,';').replace(/\n/g,' | ').trim();
-      lines.push(`${v.date},${time},${clean(v.table_loc)},${v.type||'—'},${clean(v.items_text)},Rs ${Math.abs(v.total)},${v.staff||'—'},${clean(v.return_reason)}`);
-    });
-    lines.push('');
-  }
-
-  if (returns.length) {
-    lines.push('RETURN DETAILS');
-    lines.push('Date,Time,Table,Type,Items,Amount,Staff,Reason');
-    returns.forEach(r => {
-      const time = new Date(r.created_at).toLocaleTimeString('en-PK', { hour:'2-digit', minute:'2-digit', hour12:true });
-      const clean = str => (str||'—').toString().replace(/,/g,';').replace(/\n/g,' | ').trim();
-      lines.push(`${r.date},${time},${clean(r.table_loc)},${r.type||'—'},${clean(r.items_text)},Rs ${Math.abs(r.total)},${r.staff||'—'},${clean(r.return_reason)}`);
-    });
-  }
-
-  const csv = lines.join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+ 
+  // ── DOWNLOAD ──
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `CrustNCheese_${activeBranch}_Closing_${dateStr}.csv`;
+  const dateStr = fromDate === toDate ? fromDate : (fromDate + '_to_' + toDate);
+  a.download = `CrustNCheese_${activeBranch}_Closing_${dateStr}.xlsx`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('Closing report exported ✅', 'success');
+  showToast('Closing report exported ✅ (color-coded Excel)', 'success');
 }
 
 // ══════════════════════════════════
