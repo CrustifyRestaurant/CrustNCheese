@@ -4268,21 +4268,29 @@ async function sendToKitchen() {
     await finish(); showToast('Sent to kitchen! 🔥','success');
   } catch(e) { showToast('Kitchen send failed — saved locally','error'); console.error(e); }
 }
-function printBillOnly() {
+async function printBillOnly() {
   if (!currentOrder.items.length) { showToast('No items in order', 'error'); return; }
+
+  // Guarantee a real, unique bill number before printing — same fix as
+  // the kitchen ticket, so Print Bill never shows a colliding number either.
+  if (!currentOrder.kotNo) {
+    await _assignKotNumber(currentOrder);
+    saveTableOrder();
+  }
+
   const pct = currentOrder.type === 'Dine-In' ? getSCPct() : 0;
   const scOn = currentOrder.type === 'Dine-In' ? scEnabled : false;
   const discAmt = parseFloat(document.getElementById('disc-amount').value) || 0;
   const delCharge = getDelCharge();
   const { food, sc, grand, disc } = getOrderTotal(currentOrder.items, currentOrder.type, scOn, pct, discAmt, discType, delCharge);
   const bill = {
-    billNo: currentOrder.kotNo || (DEVICE_CODE + '-' + String(billCounter).padStart(3,'0')),
+    billNo: currentOrder.kotNo,
     table: currentOrder.table,
     type: currentOrder.type,
     items: [...currentOrder.items],
     total: grand,
     method: '—',
-    time: new Date(),
+    time: new Date(currentOrder.startTime || Date.now()),
     staff: currentStaff,
     branch: activeBranch,
     customerName: currentOrder.customerName || '',
@@ -4635,17 +4643,29 @@ async function printKitchenTicket() {
     await sendToKitchen();
   }
 
+  // Guarantee every printed ticket has a real, unique KOT number.
+  // Never fall back to the raw local bill counter — that counter is
+  // per-device and NOT unique across Dine-In/Takeaway/Delivery, which is
+  // what was causing duplicate numbers on slips.
+  if (!currentOrder.kotNo) {
+    await _assignKotNumber(currentOrder);
+    saveTableOrder();
+  }
+
   const type = currentOrder.type;
   const table = (currentOrder.table || '').replace(/-/g, ' ');
   const custName = document.getElementById('order-customer-name').value;
 const custPhone = document.getElementById('order-customer-phone').value;
   const delAddr = type === 'Delivery'
     ? (document.getElementById('delivery-address').value || currentOrder.deliveryAddress || '') : '';
-  const time = new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true });
+  // Show the time the order was actually taken (when the table was opened),
+  // not the time this print button happens to be pressed — so a reprint
+  // later doesn't show a misleading later time.
+  const time = new Date(currentOrder.startTime || Date.now()).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-  // ✅ FIX 4: Sequential KOT number on every kitchen ticket
-  const kotNum = currentOrder.kotNo || String(billCounter).padStart(3,'0');
-  // ✅ FIX 5: Token matches customer slip exactly
+  // Sequential, globally-unique KOT number on every kitchen ticket
+  const kotNum = currentOrder.kotNo;
+  // Token matches customer slip exactly
   const tokenNum = (type === 'Takeaway' && currentOrder.tokenNo) ? currentOrder.tokenNo : kotNum;
 
   const itemsHTML = currentOrder.items.map(i => {
