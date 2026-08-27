@@ -1334,6 +1334,17 @@ async function sbWrite(table, op, payload, match) {
       res = await q;
     }
     if (!res || res.error) throw (res && res.error) || new Error('write returned no result');
+
+    // "No error" isn't proof the row exists — Supabase can return an empty
+    // data array with no error under RLS-silent-filter or conflict edge
+    // cases. For insert/upsert, insist on at least one row coming back
+    // before letting any caller treat this as a confirmed save.
+    if ((op === 'insert' || op === 'upsert') && (!res.data || res.data.length === 0)) {
+      console.error('sbWrite: insert/upsert returned zero rows — treating as failure:', table, payload);
+      showOfflineBlock();
+      return { error: 'write-returned-no-rows — nothing was actually saved' };
+    }
+
     return res;
   } catch (e) {
     console.error('sbWrite failed:', table, op, e.message);
@@ -2429,6 +2440,18 @@ async function _loadActiveTables() {
     // 5. Clean up the database for every row we identified as finished/stale
     if (staleRows.length) {
       for (const tname of staleRows) {
+        try {
+          // Log every auto-cleanup before deleting, so a "vanished order"
+          // question can be answered from the DB instead of guessed at.
+          await sb.from('shift_transactions').insert([{
+            id: genId(), branch: activeBranch, date: todayKey(),
+            bill_no: 'AUTOCLEAR', type: 'System', table_loc: tname,
+            items_text: 'Auto-cleared stale/closed table on load',
+            subtotal: 0, total: 0, method: 'system-cleanup',
+            staff: currentStaff || 'system',
+            return_reason: 'Auto stale-table cleanup (_loadActiveTables)'
+          }]);
+        } catch (logErr) { console.error('Cleanup log failed:', logErr.message); }
         try {
           await sb.from('active_tables').delete()
             .eq('branch', activeBranch).eq('table_name', tname);
@@ -4216,9 +4239,24 @@ async function _insertShiftTxWithRetry(orderSnap, buildRow, maxAttempts = 3) {
 
     if (res.isDupe) {
       if (lockedBillNo && billNo === lockedBillNo) {
-        // Same order retried (e.g. double-tap) — already recorded, don't renumber.
-        console.warn('Bill ' + billNo + ' already recorded for this order — treating as success');
-        return { res: {}, billNo };
+        // Don't just assume success on a dupe — confirm a row actually
+        // exists for this bill number. A false "duplicate" (lost response,
+        // unrelated constraint) must never let the app print a slip for a
+        // sale that was never really saved.
+        let confirmed = false;
+        try {
+          const { data } = await sb.from('shift_transactions')
+            .select('id').eq('branch', activeBranch).eq('bill_no', billNo).limit(1);
+          confirmed = !!(data && data.length);
+        } catch (e) { confirmed = false; }
+
+        if (confirmed) {
+          console.warn('Bill ' + billNo + ' already recorded for this order — treating as success');
+          return { res: {}, billNo };
+        }
+        console.warn('Dupe error on ' + billNo + ' but no matching row found — retrying with a new number');
+        orderSnap.kotNo = null;
+        continue;
       }
       console.warn('Bill number collision on ' + billNo + ' — retrying with a new number');
       orderSnap.kotNo = null;
