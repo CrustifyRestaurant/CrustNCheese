@@ -4493,7 +4493,7 @@ function printTakeawaySlip(sale) {
       '<div style="font-size:9px;font-weight:bold;border-top:1px solid #000;border-bottom:1px solid #000;padding:2px;margin:3px 0;">' + br.name.toUpperCase() + ' — ' + sale.type.toUpperCase() + '</div>' +
       '<div style="font-size:10px;font-weight:600;margin-bottom:2px;">📞 ' + br.phone.replace('92','0') + '</div>' +
       '<div style="font-size:40px;font-weight:900;border:3px solid #000;margin:8px auto;padding:6px;width:fit-content;min-width:80px;">🎫 #' + sale.billNo + '</div>' +
-      '<div style="font-size:11px;margin-bottom:4px;">' + new Date(sale.time).toLocaleTimeString('en-PK', {hour:'2-digit',minute:'2-digit',hour12:true}) + '</div>' +
+      '<div style="font-size:11px;margin-bottom:4px;">' + new Date(sale.time).toLocaleDateString('en-PK', {day:'2-digit',month:'short',year:'numeric'}) + ' · ' + new Date(sale.time).toLocaleTimeString('en-PK', {hour:'2-digit',minute:'2-digit',hour12:true}) + '</div>' +
       (sale.customerName ? '<div style="font-size:13px;font-weight:bold;">👤 ' + sale.customerName + '</div>' : '') +
       (sale.customerPhone ? '<div style="font-size:12px;">📞 ' + sale.customerPhone + '</div>' : '') +
       '<div style="border-top:1px dashed #000;margin:6px 0;"></div>' +
@@ -4810,7 +4810,7 @@ async function printKitchenTicket() {
 const custPhone = document.getElementById('order-customer-phone').value;
   const delAddr = type === 'Delivery'
     ? (document.getElementById('delivery-address').value || currentOrder.deliveryAddress || '') : '';
-  const time = new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const time = new Date().toLocaleDateString('en-PK', {day:'2-digit',month:'short'}) + ' · ' + new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit', hour12: true });
 
   const kotNum = currentOrder.kotNo || await _assignKotNumber(currentOrder);
   // ✅ FIX 5: Token matches customer slip exactly
