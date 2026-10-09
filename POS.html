@@ -440,6 +440,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
   <div class="login-box">
     <div class="login-logo">CRUSTN<span>CHEESE</span></div>
     <div class="login-sub">Point of Sale System v2</div>
+    <div class="login-branch-row">
+      <button type="button" class="branch-pick" data-branch="MULTAN" onclick="pickBranch('MULTAN')">Branch 1</button>
+      <button type="button" class="branch-pick" data-branch="MULTAN2" onclick="pickBranch('MULTAN2')">Branch 2</button>
+    </div>
     <input class="login-input" type="text" id="staff-name" placeholder="Staff Name" autocomplete="off">
     <input class="login-input" type="password" id="staff-pin" placeholder="PIN" maxlength="6" autocomplete="off"
            onkeydown="if(event.key==='Enter')doLogin()">
@@ -1370,6 +1374,10 @@ const BRANCHES = {
   MULTAN: { id:'MULTAN', name:'Multan', address:'Chowk Shah Khuram Babar road, Multan', phone:'923256032626',
     riders:["Hamza","Moeez","Usama","Moeen","Younas"],
     riderPhones:{ Hamza:"923077651636", Moeez:"923011371180", Usama:"923124981417", Moeen:"92XXXXXXXXXX", Younas:"92XXXXXXXXXX" }
+  },
+  MULTAN2: { id:'MULTAN2', name:'Multan Branch 2', address:'23 Number Chungi, Mookhi Plaza, Garden Town, Shershah Road, Multan', phone:'923266252555',
+    riders:["Hamza","Moeez","Mohib","Gulraiz"],
+    riderPhones:{ Hamza:"92XXXXXXXXXX", Moeez:"92XXXXXXXXXX", Mohib:"92XXXXXXXXXX", Gulraiz:"92XXXXXXXXXX" }
   }
 };
 
@@ -1491,7 +1499,7 @@ const dealFlavorMap = {
 // ══════════════════════════════════
 // STATE
 // ══════════════════════════════════
-let activeBranch = 'MULTAN';
+let activeBranch = (function(){ try { var b = localStorage.getItem('CrustNCheese_branch'); return (b && BRANCHES[b]) ? b : 'MULTAN'; } catch(e) { return 'MULTAN'; } })();
 let currentStaff = '';
 let currentStaffRole = '';
 let currentStaffPermissions = {};
@@ -1639,6 +1647,15 @@ async function checkLoginGate() {
 }
 
 
+function pickBranch(b) {
+  if (!BRANCHES[b]) return;
+  activeBranch = b;
+  try { localStorage.setItem('CrustNCheese_branch', b); } catch(e) {}
+  document.querySelectorAll('.branch-pick').forEach(el => el.classList.toggle('active', el.dataset.branch === b));
+  var err = document.getElementById('login-err'); if (err) err.style.display = 'none';
+}
+pickBranch(activeBranch);
+
 async function doLogin() {
   const name = document.getElementById('staff-name').value.trim();
   const pin  = document.getElementById('staff-pin').value.trim();
@@ -1653,7 +1670,7 @@ async function doLogin() {
 
   let staffRecord = null;
   try {
-    const { data } = await sb.from('staff').select('*').eq('name', name).eq('pin', pin).eq('active', true).single();
+    const { data } = await sb.from('staff').select('*').eq('name', name).eq('pin', pin).eq('active', true).or('branch.is.null,branch.eq.' + activeBranch).single();
     if (data) staffRecord = data;
   } catch(e) {}
 
@@ -2241,7 +2258,7 @@ async function renderStaffTable() {
   if (!isOnline || !sb) { showToast('No internet connection — cannot load staff list', 'error'); return; }
   let staffList = null;
   try {
-    const { data, error } = await sb.from('staff').select('*').order('name');
+    const { data, error } = await sb.from('staff').select('*').or('branch.is.null,branch.eq.' + activeBranch).order('name');
     if (!error && data) staffList = data;
   } catch(e) {}
   if (!staffList) { showToast('Could not load staff list — check your connection', 'error'); return; }
@@ -2306,7 +2323,7 @@ async function createStaffUser() {
   const permissions = {};
   PERM_KEYS.forEach(k => { permissions[k] = document.getElementById('ns-perm-' + k).checked; });
 
-  const { error } = await sb.from('staff').insert([{ name, pin, role, active: true, permissions }]);
+  const { error } = await sb.from('staff').insert([{ name, pin, role, active: true, permissions, branch: (role === 'Admin' ? null : activeBranch) }]);
   if (error) { showToast('Failed: ' + error.message, 'error'); return; }
 
   document.getElementById('ns-name').value = '';
