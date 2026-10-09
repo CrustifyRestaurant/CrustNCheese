@@ -508,6 +508,9 @@ tr:hover td{background:#fafafa;}
   margin-top:12px;display:none;
 }
 .login-error.show { display:block; }
+.login-branch-row { display:flex;gap:10px;margin-bottom:16px; }
+.branch-pick { flex:1;padding:12px;border-radius:12px;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.7);font-weight:800;font-size:13px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:.2s; }
+.branch-pick.active { border-color:var(--CrustNCheese-gold);background:rgba(255,215,0,0.12);color:#fff; }
 @keyframes shake {
   0%,100%{transform:translateX(0)}
   20%,60%{transform:translateX(-8px)}
@@ -522,6 +525,10 @@ tr:hover td{background:#fafafa;}
   <div class="login-box" id="login-box">
     <div class="login-logo">CrustNCheese</div>
     <div class="login-sub">Inventory Management</div>
+    <div class="login-branch-row">
+      <button type="button" class="branch-pick" data-branch="MULTAN" onclick="pickBranch('MULTAN')">Branch 1</button>
+      <button type="button" class="branch-pick" data-branch="MULTAN2" onclick="pickBranch('MULTAN2')">Branch 2</button>
+    </div>
     <input
   class="login-field"
   id="login-user"
@@ -558,7 +565,7 @@ tr:hover td{background:#fafafa;}
 <header class="header">
   <div class="logo">
     CrustNCheese Inventory
-    <em>Restaurant Stock Management</em>
+    <em>Restaurant Stock Management · <span id="hdr-branch"></span></em>
   </div>
   <div class="header-actions">
   <button class="btn btn-ghost btn-sm" id="btn-manage-users" style="display:none;" onclick="openUserManager()">
@@ -1629,6 +1636,9 @@ const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 // STATE
 // ─────────────────────────────────────────────
 let sb = null;
+const BRANCH_LABELS = { MULTAN: 'Branch 1', MULTAN2: 'Branch 2' };
+let activeBranch = (function(){ try { var b = localStorage.getItem('CrustNCheese_branch'); return (b && BRANCH_LABELS[b]) ? b : 'MULTAN'; } catch(e) { return 'MULTAN'; } })();
+let LOADED_BRANCH = null;
 let DB = { ingredients: [], grn: [], grnItems: [], closing: [], closingItems: [], batches: [], batchItems: [], expenses: [] };
 let _charts = {};
 let _dashAlertsExpanded = false;
@@ -1758,15 +1768,16 @@ async function loadAll() {
     { data: bItems },
     { data: exps }
   ] = await Promise.all([
-    sb.from('ingredients').select('*').order('name'),
-    sb.from('grn').select('*').order('bizday', {ascending:false}),
-    sb.from('grn_items').select('*'),
-    sb.from('closing').select('*').order('bizday', {ascending:false}),
-    sb.from('closing_items').select('*'),
-    sb.from('batches').select('*').order('createdat', {ascending:false}),
-    sb.from('batch_items').select('*'),
-    sb.from('expenses').select('*').order('bizday', {ascending:false})
+    sb.from('ingredients').select('*').eq('branch', activeBranch).order('name'),
+    sb.from('grn').select('*').eq('branch', activeBranch).order('bizday', {ascending:false}),
+    sb.from('grn_items').select('*').eq('branch', activeBranch),
+    sb.from('closing').select('*').eq('branch', activeBranch).order('bizday', {ascending:false}),
+    sb.from('closing_items').select('*').eq('branch', activeBranch),
+    sb.from('batches').select('*').eq('branch', activeBranch).order('createdat', {ascending:false}),
+    sb.from('batch_items').select('*').eq('branch', activeBranch),
+    sb.from('expenses').select('*').eq('branch', activeBranch).order('bizday', {ascending:false})
   ]);
+  LOADED_BRANCH = activeBranch;
   DB.ingredients   = ings   || [];
   DB.grn           = grns   || [];
   DB.grnItems      = gItems || [];
@@ -2172,6 +2183,7 @@ async function saveIngredient() {
 
   const rec = {
     id:           document.getElementById('ing-edit-id').value || uid(),
+    branch:       activeBranch,
     name:         name,
     category:     document.getElementById('ing-cat-inp').value,
     unit:         document.getElementById('ing-unit').value,
@@ -2312,7 +2324,7 @@ async function saveGRN() {
   setSyncStatus('busy', 'Saving GRN…');
 
   const { error: hErr } = await sb.from('grn').insert({
-    id: grnId, bizday, supplier,
+    id: grnId, branch: activeBranch, bizday, supplier,
     invoiceno: document.getElementById('grn-invoice').value.trim(),
     grandtotal: grandTotal,
     notes: document.getElementById('grn-notes').value.trim(),
@@ -2321,7 +2333,7 @@ async function saveGRN() {
   if (hErr) { toast('❌ '+hErr.message,'err'); setSyncStatus('ok',''); return; }
 
   const itemRows = items.map(i=>({
-    id: uid(), grn_id: grnId, ingredient_id: i.ingId,
+    id: uid(), branch: activeBranch, grn_id: grnId, ingredient_id: i.ingId,
     itemname: i.name, qty: i.qty, unit: i.unit,
     unitcost: i.ucost, linetotal: i.qty * i.ucost,
     itemsupplier: i.itemSupplier
@@ -2430,8 +2442,8 @@ function renderGRN() {
 // ── BATCHES ──
 async function loadBatches() {
   const [{ data: batches }, { data: bItems }] = await Promise.all([
-    sb.from('batches').select('*').order('createdat', {ascending:false}),
-    sb.from('batch_items').select('*')
+    sb.from('batches').select('*').eq('branch', activeBranch).order('createdat', {ascending:false}),
+    sb.from('batch_items').select('*').eq('branch', activeBranch)
   ]);
   DB.batches = batches || [];
   DB.batchItems = bItems || [];
@@ -2545,7 +2557,7 @@ async function saveBatch() {
 
   setSyncStatus('busy','Saving batch…');
 
-  const batchRow = { name, type, totalprice:totalPrice, totalportion:totalPortion, totalcost:totalCost, perkgcost:perKg, output_ingredient_id: outputIngId, outputqty: outputQty };
+  const batchRow = { branch: activeBranch, name, type, totalprice:totalPrice, totalportion:totalPortion, totalcost:totalCost, perkgcost:perKg, output_ingredient_id: outputIngId, outputqty: outputQty };
 
   let bErr = null;
   if (editId) {
@@ -2559,7 +2571,7 @@ async function saveBatch() {
   if (bErr) { toast('❌ ' + bErr.message, 'err'); setSyncStatus('ok', ''); return; }
 
   const itemRows = items.map(i => ({
-    id: uid(), batch_id: batchId, ingredient_id: i.ingId,
+    id: uid(), branch: activeBranch, batch_id: batchId, ingredient_id: i.ingId,
     itemname: i.name, unit: i.unit, price: i.price, portion: i.portion, cost: i.cost
   }));
   await sb.from('batch_items').insert(itemRows);
@@ -2817,7 +2829,7 @@ async function updateGRN() {
   }).eq('id', id);
 
   const itemRows = newItems.map(i=>({
-    id: uid(), grn_id: id, ingredient_id: i.ingId,
+    id: uid(), branch: activeBranch, grn_id: id, ingredient_id: i.ingId,
     itemname: i.name, qty: i.qty, unit: i.unit,
     unitcost: i.ucost, linetotal: i.qty*i.ucost,
     itemsupplier: i.itemSupplier || supplier
@@ -2990,11 +3002,11 @@ async function commitUploadGRN() {
   const grandTotal = matched.reduce((s,m)=>s+m.qty*m.ucost,0);
   setSyncStatus('busy','Saving GRN…');
   const { error: hErr } = await sb.from('grn').insert({
-    id: grnId, bizday, supplier, invoiceno:'', grandtotal: grandTotal, notes:'Uploaded', createdat: new Date().toISOString()
+    id: grnId, branch: activeBranch, bizday, supplier, invoiceno:'', grandtotal: grandTotal, notes:'Uploaded', createdat: new Date().toISOString()
   });
   if (hErr) { toast('❌ '+hErr.message,'err'); return; }
   const itemRows = matched.map(m=>({
-    id: uid(), grn_id: grnId, ingredient_id: m.ing.id,
+    id: uid(), branch: activeBranch, grn_id: grnId, ingredient_id: m.ing.id,
     itemname: m.ing.name, qty: m.qty, unit: m.ing.unit,
     unitcost: m.ucost, linetotal: m.qty*m.ucost,
     itemsupplier: m.itemSupplier || supplier
@@ -3034,7 +3046,7 @@ function getGRNTodayForIng(ingId, bizday) {
 }
 
 async function getPOSConsumedForIng(ingId, bizday) {
-  const { data } = await sb.from('pos_consumption').select('qty').eq('ingredient_id', ingId).eq('bizday', bizday);
+  const { data } = await sb.from('pos_consumption').select('qty').eq('ingredient_id', ingId).eq('bizday', bizday).eq('branch', activeBranch);
   return (data||[]).reduce((s,r)=>s+safe(r.qty),0);
 }
 
@@ -3055,6 +3067,7 @@ async function getPOSConsumedForIngRange(ingId, fromISO, toISO) {
   const { data } = await sb.from('pos_consumption')
     .select('qty')
     .eq('ingredient_id', ingId)
+    .eq('branch', activeBranch)
     .gte('created_at', fromISO)
     .lt('created_at', toISO);
   return (data||[]).reduce((s,r)=>s+safe(r.qty),0);
@@ -3171,7 +3184,7 @@ async function saveManualClosing() {
       console.warn(`⚠️ Variance: ${ing.name} counted ${variance} ${ing.unit} MORE than available.`);
     }
     items.push({
-      id: uid(), closing_id: closingId, ingredient_id: ing.id,
+      id: uid(), branch: activeBranch, closing_id: closingId, ingredient_id: ing.id,
       itemname: ing.name, unit: ing.unit,
       opening, grntoday: grnToday, available, physical,
       consumed, variance, costperunit: cpu, consumptioncost: cost,
@@ -3182,7 +3195,7 @@ async function saveManualClosing() {
   setSyncStatus('busy','Saving closing…');
 
   const { error: hErr } = await sb.from('closing').insert({
-    id: closingId, bizday, closedby, totalcost: totalCost,
+    id: closingId, branch: activeBranch, bizday, closedby, totalcost: totalCost,
     cutoff_at: cutoffISO, window_start_at: windowStartISO,
     createdat: new Date().toISOString()
   });
@@ -3315,7 +3328,7 @@ async function commitUploadClosing() {
       console.warn(`⚠️ Variance: ${ing.name} counted ${variance} ${ing.unit} MORE than available. Check for missed GRN or bad opening figure.`);
     }
     items.push({
-      id: uid(), closing_id: closingId, ingredient_id: ing.id,
+      id: uid(), branch: activeBranch, closing_id: closingId, ingredient_id: ing.id,
       itemname: ing.name, unit: ing.unit,
       opening, grntoday: grnToday, available, physical,
       consumed, variance, costperunit: cpu, consumptioncost: cost,
@@ -3324,7 +3337,7 @@ async function commitUploadClosing() {
   }
   setSyncStatus('busy','Saving closing…');
   const { error: hErr } = await sb.from('closing').insert({
-    id: closingId, bizday, closedby, totalcost: totalCost,
+    id: closingId, branch: activeBranch, bizday, closedby, totalcost: totalCost,
     cutoff_at: cutoffISO, window_start_at: windowStartISO,
     createdat: new Date().toISOString()
   });
@@ -4053,6 +4066,7 @@ async function handleIngredientsUploadFile(e) {
       if (!name) return;
       const rec = {
         id:           uid(),
+        branch:       activeBranch,
         name,
         category:     (row['category']||row['Category']||'general').toString().toLowerCase().trim(),
         unit:         (row['unit']||row['Unit']||'pcs').toString().toLowerCase().trim(),
@@ -4402,6 +4416,7 @@ async function saveExpense() {
 
   const rec = {
     id:          document.getElementById('exp-edit-id').value || uid(),
+    branch:      activeBranch,
     bizday:      bizday,
     category:    document.getElementById('exp-cat').value,
     description: desc,
@@ -4459,6 +4474,7 @@ function copySQL() {
 // ─────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   const today = bizDayToday();
+  pickBranch(activeBranch);
   applyRolePermissions();
   const setIfEmpty = id => { const el=document.getElementById(id); if(el&&!el.value) el.value=today; };
   ['quick-grn-date','quick-closing-date','cl-filter-date'].forEach(setIfEmpty);
@@ -4475,6 +4491,19 @@ window.addEventListener('DOMContentLoaded', () => {
 // LOGIN
 // ─────────────────────────────────────────────
 let CURRENT_USER = null; // { username, role }
+
+function setBranchBadge() {
+  var el = document.getElementById('hdr-branch');
+  if (el) el.textContent = BRANCH_LABELS[activeBranch] || activeBranch;
+}
+function pickBranch(b) {
+  if (!BRANCH_LABELS[b]) return;
+  activeBranch = b;
+  try { localStorage.setItem('CrustNCheese_branch', b); } catch(e) {}
+  document.querySelectorAll('.branch-pick').forEach(el => el.classList.toggle('active', el.dataset.branch === b));
+  var err = document.getElementById('login-error'); if (err) err.classList.remove('show');
+  setBranchBadge();
+}
 
 async function doLogin() {
   const username = document.getElementById('login-user').value.trim();
@@ -4496,6 +4525,7 @@ async function doLogin() {
     .select('*')
     .ilike('username', username)
     .eq('password', entered)
+    .or('branch.is.null,branch.eq.' + activeBranch)
     .maybeSingle();
 
   if (error || !data || !data.active) {
@@ -4507,11 +4537,14 @@ async function doLogin() {
     return;
   }
 
-  CURRENT_USER = { username: data.username, role: data.role, permissions: data.permissions || {} };
+  CURRENT_USER = { username: data.username, role: data.role, permissions: data.permissions || {}, branch: activeBranch };
   sessionStorage.setItem('CrustNCheese_auth', JSON.stringify(CURRENT_USER));
   document.getElementById('login-screen').classList.add('hidden');
   err.classList.remove('show');
   applyRolePermissions();
+  setBranchBadge();
+  // data may have been loaded for a different branch before the user picked one — reload so everything matches
+  if (LOADED_BRANCH !== activeBranch) location.reload();
 }
 
 // Restore session on page reload
@@ -4519,6 +4552,7 @@ const savedSession = sessionStorage.getItem('CrustNCheese_auth');
 if (savedSession) {
   try {
     CURRENT_USER = JSON.parse(savedSession);
+    if (CURRENT_USER.branch && BRANCH_LABELS[CURRENT_USER.branch]) activeBranch = CURRENT_USER.branch;
     document.getElementById('login-screen').classList.add('hidden');
   } catch(e) { sessionStorage.removeItem('CrustNCheese_auth'); }
 }
@@ -4567,7 +4601,7 @@ async function openUserManager() {
 }
 
 async function renderUsers() {
-  const { data: users, error } = await sb.from('app_users').select('*').order('username');
+  const { data: users, error } = await sb.from('app_users').select('*').or('branch.is.null,branch.eq.' + activeBranch).order('username');
   if (error) { toast('❌ ' + error.message, 'err'); return; }
 
   document.getElementById('users-tbody').innerHTML = users.map(u => {
@@ -4654,7 +4688,7 @@ async function createUser() {
   };
 
   const { error } = await sb.from('app_users').insert({
-    id: uid(), username, password, role, active: true, permissions
+    id: uid(), username, password, role, active: true, permissions, branch: (role === 'admin' ? null : activeBranch)
   });
   if (error) { toast('❌ ' + error.message, 'err'); return; }
 
