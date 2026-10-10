@@ -1232,6 +1232,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
 <label><input type="checkbox" id="ns-perm-print_logout" checked> Print Logout Receipt</label>
 <label><input type="checkbox" id="ns-perm-expense" checked> Record Expenses</label>
 <label><input type="checkbox" id="ns-perm-credit"> Customer Credit</label>
+<label><input type="checkbox" id="ns-perm-totals"> Totals Tab</label>
       </div>
     </div>
 
@@ -2231,7 +2232,7 @@ async function applyPOSOverrides() {
 // ══════════════════════════════════
 // STAFF / USER MANAGEMENT (admin only)
 // ══════════════════════════════════
-const PERM_KEYS = ['cash','closing','history','delivery','analytics','void','view_totals','admin_tools','print_logout','expense','credit'];
+const PERM_KEYS = ['cash','closing','history','delivery','analytics','void','view_totals','admin_tools','print_logout','expense','credit','totals'];
 
 function applyPOSPermissions() {
   const perms = currentStaffPermissions || {};
@@ -2253,6 +2254,7 @@ function applyPOSPermissions() {
   gate('cash-expense-btn', isAdmin || perms.expense !== false);
   gate('nav-expense-standalone', isAdmin || perms.expense !== false);
     gate('nav-credit', isAdmin || perms.credit === true);
+  gate('nav-totals', isAdmin || perms.totals === true);
 
   const cashWrap = document.getElementById('bar-cash-wrap');
   if (cashWrap) cashWrap.style.display = (isAdmin || perms.view_totals !== false) ? '' : 'none';
@@ -2308,6 +2310,7 @@ async function renderStaffTable() {
           <label><input type="checkbox" id="sp_${s.id}_print_logout" ${p.print_logout!==false?'checked':''}> Print Logout Receipt</label>
           <label><input type="checkbox" id="sp_${s.id}_expense" ${p.expense!==false?'checked':''}> Record Expenses</label>
           <label><input type="checkbox" id="sp_${s.id}_credit" ${p.credit===true?'checked':''}> Customer Credit</label>
+          <label><input type="checkbox" id="sp_${s.id}_totals" ${p.totals===true?'checked':''}> Totals Tab</label>
         </div>
         <button onclick="saveStaffPermissions('${s.id}')" style="padding:6px 14px;border-radius:7px;background:var(--purple);color:white;border:none;font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">💾 Save Access</button>
       </td>
@@ -2730,7 +2733,7 @@ async function confirmAndPrintSlip() {
 function switchView(v) {
   const isAdmin = currentStaffRole === 'Admin' || currentStaffRole === 'Manager';
   const perms = currentStaffPermissions || {};
-  const blocked = { cash: perms.cash===false, closing: perms.closing===false, history: perms.history===false, delivery: perms.delivery===false, credit: perms.credit!==true };
+  const blocked = { cash: perms.cash===false, closing: perms.closing===false, history: perms.history===false, delivery: perms.delivery===false, credit: perms.credit!==true, totals: perms.totals!==true };
   if (!isAdmin && blocked[v]) { showToast('Access denied', 'error'); v = 'tables'; }
 
   document.querySelectorAll('.pos-view').forEach(x => x.classList.remove('active'));
