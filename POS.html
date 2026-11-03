@@ -191,6 +191,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
 .deal-card-pos.featured .dcp-name{font-size:15px;color:var(--gold);}
 .deal-card-pos.featured .dcp-desc{color:var(--text2);}
 .deal-card-pos.featured .dcp-price{font-size:22px;color:#ffd34d;}
+.deal-card-pos.featured-blue{background:linear-gradient(135deg,rgba(41,128,185,0.28),rgba(93,173,226,0.12));border:2px solid #5dade2;box-shadow:0 0 18px rgba(41,128,185,0.45);animation:pulse-warn 2.5s infinite;}
+.deal-card-pos.featured-blue:hover{border-color:#85c1e9;box-shadow:0 0 26px rgba(41,128,185,0.65);}
+.deal-card-pos.featured-blue .dcp-name{font-size:15px;color:#5dade2;}
+.deal-card-pos.featured-blue .dcp-desc{color:var(--text2);}
+.deal-card-pos.featured-blue .dcp-price{font-size:22px;color:#85c1e9;}
+.deal-badge-blue{display:inline-block;background:#2980b9;color:#fff;font-family:'Outfit',sans-serif;font-size:10px;font-weight:900;letter-spacing:1px;padding:2px 8px;border-radius:20px;margin-bottom:5px;}
 .deal-badge{display:inline-block;background:var(--gold);color:#000;font-family:'Outfit',sans-serif;font-size:10px;font-weight:900;letter-spacing:1px;padding:2px 8px;border-radius:20px;margin-bottom:5px;}
 
 /* ── DELIVERY MANAGEMENT ── */
@@ -1480,6 +1486,7 @@ const menuData = {
   ]
 };
 const dealsData=[
+  {n:"11.11",d:"4 Zinger Burgers",p:1111,_highlightBlue:true},
   {n:"1 Small Pizza + Drink",d:"1 Small Pizza with Drink",p:450},
   {n:"1 Medium Pizza + 2 Drinks",d:"1 Medium Pizza with 2 Drinks",p:850},
   {n:"1 Large Pizza + 1Ltr Drink",d:"1 Large Pizza with 1 Ltr Drink",p:1150},
@@ -3167,7 +3174,8 @@ function renderMenu(filter='') {
 dealsData.filter(d => !d._unavailable && (!filter || d.n.toLowerCase().includes(filter.toLowerCase()))).forEach(deal => {
   const card = document.createElement('div'); card.className = 'deal-card-pos';
       if (deal._highlight) card.classList.add('featured');
-      card.innerHTML = `${deal._highlight ? '<div class="deal-badge">🔥 SPECIAL OFFER</div>' : ''}<div class="dcp-name">${deal.n}</div><div class="dcp-desc">${deal.d}</div><div class="dcp-price">Rs ${deal.p}</div>`;
+      if (deal._highlightBlue) card.classList.add('featured-blue');
+      card.innerHTML = `${deal._highlight ? '<div class="deal-badge">🔥 SPECIAL OFFER</div>' : ''}${deal._highlightBlue ? '<div class="deal-badge-blue">✨ NEW</div>' : ''}<div class="dcp-name">${deal.n}</div><div class="dcp-desc">${deal.d}</div><div class="dcp-price">Rs ${deal.p}</div>`;
 card.onclick = () => {
         if (dealFlavorMap[deal.n]) {
           openDealFlavorModal(deal, dealFlavorMap[deal.n]);
@@ -3298,7 +3306,8 @@ function openDealWithNote(deal) {
   document.getElementById('size-note').value = '';
   document.getElementById('size-options').innerHTML = '';
   document.getElementById('size-confirm-btn').onclick = () => {
-    const note = document.getElementById('size-note').value.trim();
+    const userNote = document.getElementById('size-note').value.trim();
+    const note = (deal.d ? 'Includes: ' + deal.d : '') + (userNote ? ' | ' + userNote : '');
     addItemToOrder({ n: deal.n, p: deal.p }, deal.p, sizeModalQty, note);
     closeModal('size-modal');
   };
