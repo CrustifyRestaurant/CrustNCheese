@@ -54,6 +54,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
 
 .logout-btn{padding:5px 12px;border-radius:8px;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.3);color:var(--red);font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase;}
 
+/* ── NAV DROPDOWNS ── */
+.nav-dd{position:relative;display:inline-block;}
+.nav-dd-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:210px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.55);z-index:6500;flex-direction:column;gap:3px;}
+.nav-dd-right .nav-dd-menu{left:auto;right:0;}
+.nav-dd.open .nav-dd-menu{display:flex;}
+.nav-dd-menu button{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:7px;border:none;background:var(--surface2);color:var(--text2);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;white-space:nowrap;}
+.nav-dd-menu button:hover{background:var(--surface3);color:var(--text);}
+.nav-dd-menu button.active{background:var(--red);color:white;}
+.nav-dd-menu button.dd-purple{background:rgba(142,68,173,0.15);color:#bb77ff;}
+.nav-dd-menu button.dd-orange{background:rgba(230,126,34,0.15);color:var(--orange);}
+.nav-dd-menu button.dd-danger{background:rgba(192,57,43,0.2);color:#ff6b6b;border:1px solid rgba(192,57,43,0.4);}
+.nav-dd-menu button.dd-danger:hover{background:var(--red);color:white;}
+.nav-dd-divider{height:1px;background:var(--border);margin:3px 0;}
+.am-label{font-size:12px;color:var(--text2);font-weight:600;margin:4px 0 5px;}
+
 /* ── VIEWS ── */
 .pos-view{display:none;flex:1;overflow:hidden;}
 .pos-view.active{display:flex;}
@@ -479,10 +494,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
 <button class="nav-btn" id="nav-cash" onclick="switchView('cash')">💵 Cash</button>
 <button class="nav-btn" id="nav-credit" onclick="switchView('credit')">💳 Credit</button>
 <button class="nav-btn" id="nav-expense-standalone" onclick="addExpense()" style="background:rgba(230,126,34,0.15);color:var(--orange);">🧾 Expense</button>
-<button class="nav-btn" id="nav-closing" onclick="switchView('closing')">📊 Closing</button>
+<button class="nav-btn" id="nav-crosscheck" onclick="switchView('crosscheck')" style="background:rgba(39,174,96,0.15);color:var(--green);">🔍 Cross Check</button>
+<div class="nav-dd" id="dd-reports"><button class="nav-btn nav-dd-toggle" onclick="toggleNavDD('dd-reports',event)">📊 Reports ▾</button><div class="nav-dd-menu"><button class="nav-btn" id="nav-closing" onclick="switchView('closing')">📊 Closing</button>
 <button class="nav-btn" id="nav-history" onclick="switchView('history')">📅 History</button>
-<button class="nav-btn" id="nav-totals" onclick="switchView('totals')">📈 Totals</button>
-<button class="print-report-btn" id="nav-closeshifts" onclick="closeAllShifts()" style="background:var(--red);color:white;border-color:var(--red);font-weight:800;">
+<button class="nav-btn" id="nav-totals" onclick="switchView('totals')">📈 Totals</button></div></div>
+<button class="print-report-btn" id="nav-closeshifts-old" onclick="closeAllShifts()" style="display:none;">
   🔒 CLOSE ALL SHIFTS & RESET
 </button>
     </div>
@@ -492,9 +508,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
       <div class="topbar-info" id="bar-time">—</div>
       <div class="topbar-info" id="bar-cash-wrap">Cash: <span id="bar-cash" style="color:var(--green)">Rs 0</span></div>
       <div class="topbar-info">Bill# <span id="bar-billno" style="color:var(--text3)">001</span></div>
-      <button class="logout-btn" id="btn-manage-staff" style="display:none;background:rgba(142,68,173,0.15);border-color:rgba(142,68,173,0.4);color:#bb77ff;" onclick="openStaffManager()">👥 Manage Users</button>
-<button class="logout-btn" id="nav-analytics-1" onclick="window.open('CrustNCheese-analytics.html','_blank')" style="background:rgba(230,126,34,0.15);border-color:rgba(230,126,34,0.4);color:var(--orange);">≡ Analytics</button>
-<button class="logout-btn" id="nav-analytics-2" onclick="toggleAnalyticsPanel()" style="background:rgba(230,126,34,0.15);border-color:rgba(230,126,34,0.4);color:var(--orange);font-size:18px;padding:5px 14px;">☰</button>
+      <div class="nav-dd nav-dd-right" id="dd-admin"><button class="nav-btn nav-dd-toggle" onclick="toggleNavDD('dd-admin',event)">⚙️ Admin ▾</button><div class="nav-dd-menu"><button class="dd-purple" id="btn-manage-staff" onclick="openStaffManager()">👥 Manage Users</button><button class="dd-orange" id="btn-manage-menu" onclick="openMenuManager()">🍽️ Manage Menu</button>
+<button class="dd-orange" id="nav-analytics-1" onclick="window.open('CrustNCheese-analytics.html','_blank')">≡ Analytics (Full Screen)</button>
+<button class="dd-orange" id="nav-analytics-2" onclick="toggleAnalyticsPanel()">☰ Analytics Panel</button><div class="nav-dd-divider"></div><button class="dd-danger" id="nav-closeshifts" onclick="closeAllShifts()">🔒 Close All Shifts &amp; Reset</button></div></div>
 <button class="logout-btn" onclick="doLogout()">LOGOUT</button>
     </div>
   </div>
@@ -800,6 +816,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
   <div class="menu-panel-header">
     <input class="menu-search" id="menu-search" placeholder="🔍 Search items..." oninput="filterMenu(this.value)">
     <button class="refresh-btn" onclick="document.getElementById('menu-search').value='';filterMenu('')">Clear</button>
+    <button class="refresh-btn" id="btn-add-menu-item" style="display:none;color:var(--green);border-color:var(--green);" onclick="openAddMenuModal('item')">+ Item</button>
+    <button class="refresh-btn" id="btn-add-deal" style="display:none;color:var(--orange);border-color:var(--orange);" onclick="openAddMenuModal('deal')">+ Deal</button>
   </div>
   <div class="menu-body">
     <div class="cat-sidebar" id="cat-sidebar"></div>
@@ -925,7 +943,26 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
     </div>
   </div>
 
-  <!-- TOTALS ONLY VIEW — pulls a single aggregate row, no transaction data -->
+  <!-- CROSS-CHECK VIEW -->
+<div class="pos-view" id="view-crosscheck">
+  <div style="max-width:100%;width:100%;padding:18px;overflow-y:auto;flex-direction:column;height:100%;">
+    <div class="section-header">
+      <div class="section-title-bar">🔍 Cross-Check — POS vs Cashier's Report</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text2);">From</span>
+        <input type="datetime-local" step="60" id="xc-date-from" onchange="syncDateRangeFromInputs('xc-date-from','xc-date-to')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;outline:none;">
+        <span style="font-size:12px;color:var(--text2);">To</span>
+        <input type="datetime-local" step="60" id="xc-date-to" onchange="syncDateRangeFromInputs('xc-date-from','xc-date-to')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;outline:none;">
+        <select id="xc-staff" onchange="renderCrossCheck()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;outline:none;"><option value="">All staff</option></select>
+        <button class="refresh-btn" onclick="loadCrossCheck()">↻ Load</button>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">Each cashier's end-of-shift report is compared against what the POS recorded for that same person and shift window. Differences show in red.</div>
+    <div id="xc-content"><div style="text-align:center;padding:48px;color:var(--text3);">Pick a range and click Load</div></div>
+  </div>
+</div>
+
+<!-- TOTALS ONLY VIEW — pulls a single aggregate row, no transaction data -->
   <div class="pos-view" id="view-totals">
     <div style="max-width:100%;width:100%;padding:18px;overflow-y:auto;flex-direction:column;height:100%;">
       <div class="section-header">
@@ -1116,6 +1153,92 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
     </div>
   </div>
 </div>
+<!-- END-OF-SHIFT DECLARATION -->
+<div class="modal-backdrop" id="decl-modal">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-title">📝 End-of-Shift Report</div>
+    <div class="modal-sub" id="decl-sub"></div>
+    <div id="decl-body"></div>
+  </div>
+</div>
+
+<!-- ADMIN: EDIT CASHIER REPORT -->
+<div class="modal-backdrop" id="decl-edit-modal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-title">✏️ Edit Cashier Report</div>
+    <div class="modal-sub" id="de-sub"></div>
+    <div id="de-body"></div>
+  </div>
+</div>
+
+<!-- EXPENSES MODAL -->
+<div class="modal-backdrop" id="expenses-modal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-title">🧾 Daily Expenses</div>
+    <div class="modal-sub">Range-based. Counts in drawer, closing & history.</div>
+    <div id="exp-body"></div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="modal-cancel" onclick="closeModal('expenses-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- MENU MANAGER MODAL -->
+<div class="modal-backdrop" id="menu-mgr-modal">
+  <div class="modal-box" style="max-width:620px;">
+    <div class="modal-title">🍽️ Manage Menu</div>
+    <div class="modal-sub">Add, re-price or remove items and deals. Saved to the cloud for this branch.</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="modal-confirm" style="flex:1;" onclick="openAddMenuModal('item')">+ Add Menu Item</button>
+      <button class="modal-confirm" style="flex:1;background:var(--red);box-shadow:0 3px 0 var(--dark-red);" onclick="openAddMenuModal('deal')">+ Add Deal</button>
+    </div>
+    <input class="recall-input" id="mm-search" placeholder="🔍 Search items / deals..." oninput="renderMenuManager()" autocomplete="off">
+    <div id="mm-list" style="max-height:50vh;overflow-y:auto;"></div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="modal-cancel" onclick="closeModal('menu-mgr-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD MENU ITEM / DEAL MODAL -->
+<div class="modal-backdrop" id="add-menu-modal">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-title" id="am-title">Add Menu Item</div>
+    <div class="modal-sub">Saved to the cloud for this branch.</div>
+    <div id="am-item-fields">
+      <div class="am-label">Category</div>
+      <input class="recall-input" id="am-category" list="am-cat-list" placeholder="Pick existing or type a new one" autocomplete="off">
+      <datalist id="am-cat-list"></datalist>
+      <div class="am-label">Item Name</div>
+      <input class="recall-input" id="am-name" placeholder="e.g. Zinger Burger" autocomplete="off">
+      <div class="am-label">Pricing</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <button class="disc-type-btn active" id="am-mode-single" onclick="setAmPriceMode('single')">Single Price</button>
+        <button class="disc-type-btn" id="am-mode-sizes" onclick="setAmPriceMode('sizes')">Multiple Sizes</button>
+      </div>
+      <div id="am-single-wrap"><input class="recall-input" type="number" id="am-price" placeholder="Price (Rs)" min="0"></div>
+      <div id="am-sizes-wrap" style="display:none;">
+        <div id="am-size-rows"></div>
+        <button onclick="addAmSizeRow()" style="width:100%;padding:8px;border-radius:8px;background:rgba(39,174,96,0.1);border:1px dashed rgba(39,174,96,0.3);color:var(--green);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:10px;">+ Add Size</button>
+      </div>
+    </div>
+    <div id="am-deal-fields" style="display:none;">
+      <div class="am-label">Deal Name</div>
+      <input class="recall-input" id="am-deal-name" placeholder="e.g. Family Feast" autocomplete="off">
+      <div class="am-label">Description (what's included)</div>
+      <input class="recall-input" id="am-deal-desc" placeholder="e.g. 2 Zinger + Fries + 1.5L Drink" autocomplete="off">
+      <div class="am-label">Price (Rs)</div>
+      <input class="recall-input" type="number" id="am-deal-price" placeholder="Price" min="0">
+      <div class="am-label">Flavors (optional — one per line, cashier picks one)</div>
+      <textarea class="modal-note-input" id="am-deal-flavors" rows="3" placeholder="Fajita&#10;Tikka&#10;Cheese Lover"></textarea>
+    </div>
+    <div class="modal-actions" style="margin-top:6px;">
+      <button class="modal-cancel" onclick="closeModal('add-menu-modal')">Cancel</button>
+      <button class="modal-confirm" id="am-save-btn" onclick="saveNewMenuEntry()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADMIN TRANSACTION MODAL -->
 <div class="modal-backdrop" id="admin-tx-modal">
   <div class="modal-box" style="max-width:540px;">
@@ -1702,7 +1825,43 @@ async function doLogin() {
   currentStaff = staffRecord.name;
 currentStaffRole = staffRecord.role;
 currentStaffPermissions = staffRecord.permissions || {};
-shiftStart = new Date();
+{
+  const _ssKey = 'CrustNCheese_shift_start_' + activeBranch + '_' + currentStaff;
+  let _d = null;
+  try { const _saved = localStorage.getItem(_ssKey); _d = _saved ? new Date(_saved) : null; } catch(e) {}
+  if (_d && isNaN(_d)) _d = null;
+  if (_d && (Date.now() - _d.getTime()) > 16 * 60 * 60 * 1000) _d = null;   // older than 16h = previous shift
+  if (_d) {
+    try {
+      const { data: _lc } = await sb.from('shift_closures').select('closed_at').eq('branch', activeBranch)
+        .order('closed_at', { ascending: false }).limit(1).maybeSingle();
+      if (_lc && _lc.closed_at && new Date(_lc.closed_at) > _d) _d = null;  // day was closed after this start
+    } catch(e) {}
+  }
+  shiftStart = _d || new Date();
+  // Resume an interrupted end-of-shift report (power cut / crash): keep the ORIGINAL shift start
+  _declResume = null;
+  if (currentStaffRole !== 'Admin' && currentStaffRole !== 'Manager') {
+    try {
+      const { data: _pd } = await sb.from('cashier_declarations')
+        .select('session_id,attempt_no,has_mismatch,shift_start,created_at')
+        .eq('branch', activeBranch).eq('staff', currentStaff)
+        .gte('created_at', new Date(Date.now() - 6*3600*1000).toISOString())
+        .order('created_at', { ascending: false }).limit(10);
+      if (_pd && _pd.length) {
+        const _last = _pd[0];
+        const _sess = _pd.filter(r => r.session_id === _last.session_id);
+        const _maxAtt = Math.max(..._sess.map(r => r.attempt_no));
+        if (_last.has_mismatch && _maxAtt < 2) {
+          _declResume = { session: _last.session_id, attempt: _maxAtt + 1 };
+          const _orig = _sess.map(r => r.shift_start).filter(Boolean).sort()[0];
+          if (_orig) shiftStart = new Date(_orig);
+        }
+      }
+    } catch (e) { console.warn('resume check failed:', e.message); }
+  }
+  try { localStorage.setItem(_ssKey, shiftStart.toISOString()); } catch(e) {}
+}
 ensureDeviceCode();
 _loadSharedDateRange();
 
@@ -1780,6 +1939,10 @@ async function saveShiftReport() {
 
 async function doLogout() {
   if (!confirm('Logout? Shift data stays intact — use "Close Shifts" to end the day.')) return;
+  if (currentStaffRole !== 'Admin' && currentStaffRole !== 'Manager') {
+    const declared = await askCashierDeclaration();
+    if (!declared) return;
+  }
 
   // Force-flush whatever is on screen right now — covers any field that
   // doesn't have its own save handler — and AWAIT the cloud write so
@@ -2190,7 +2353,7 @@ async function applyPOSOverrides() {
     (customItems || []).forEach(item => {
       const priceObj = (() => { try { return JSON.parse(item.price); } catch(e) { return parseInt(item.price); } })();
       if (!menuData[item.category]) menuData[item.category] = [];
-      if (!menuData[item.category].find(i => i.name === item.name)) {
+      if (!menuData[item.category].find(i => i.n === item.name)) {
         menuData[item.category].push({ n: item.name, p: priceObj, _custom: true });
       }
     });
@@ -2266,6 +2429,11 @@ function applyPOSPermissions() {
 
   const cashWrap = document.getElementById('bar-cash-wrap');
   if (cashWrap) cashWrap.style.display = (isAdmin || perms.view_totals !== false) ? '' : 'none';
+  gate('nav-crosscheck', isAdmin);
+  gate('btn-manage-menu', isAdmin);
+  gate('btn-add-menu-item', isAdmin);
+  gate('btn-add-deal', isAdmin);
+  refreshNavDropdowns();
 }
 
 async function openStaffManager() {
@@ -2738,10 +2906,31 @@ async function confirmAndPrintSlip() {
 // ══════════════════════════════════
 // VIEW SWITCHING
 // ══════════════════════════════════
+function toggleNavDD(id, ev) {
+  if (ev) ev.stopPropagation();
+  document.querySelectorAll('.nav-dd').forEach(d => { if (d.id !== id) d.classList.remove('open'); });
+  document.getElementById(id)?.classList.toggle('open');
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.nav-dd.open').forEach(d => d.classList.remove('open'));
+});
+function updateNavDDActive() {
+  document.querySelectorAll('.nav-dd').forEach(dd => {
+    const toggle = dd.querySelector('.nav-dd-toggle');
+    if (toggle) toggle.classList.toggle('active', !!dd.querySelector('.nav-dd-menu .nav-btn.active'));
+  });
+}
+function refreshNavDropdowns() {
+  document.querySelectorAll('.nav-dd').forEach(dd => {
+    const items = [...dd.querySelectorAll('.nav-dd-menu button')];
+    dd.style.display = items.some(b => b.style.display !== 'none') ? '' : 'none';
+  });
+}
+
 function switchView(v) {
   const isAdmin = currentStaffRole === 'Admin' || currentStaffRole === 'Manager';
   const perms = currentStaffPermissions || {};
-  const blocked = { cash: perms.cash===false, closing: perms.closing===false, history: perms.history===false, delivery: perms.delivery===false, credit: perms.credit!==true, totals: perms.totals!==true };
+  const blocked = { cash: perms.cash===false, closing: perms.closing===false, history: perms.history===false, delivery: perms.delivery===false, credit: perms.credit!==true, totals: perms.totals!==true, crosscheck: !isAdmin };
   if (!isAdmin && blocked[v]) { showToast('Access denied', 'error'); v = 'tables'; }
 
   document.querySelectorAll('.pos-view').forEach(x => x.classList.remove('active'));
@@ -2764,11 +2953,13 @@ function switchView(v) {
   loadHistoryForRange(document.getElementById('history-date-picker').value, document.getElementById('history-date-to-picker').value);
 }
 if (v === 'credit') renderCreditView();
+if (v === 'crosscheck') { _applySharedRangeOrDefault('xc-date-from', 'xc-date-to'); loadCrossCheck(); }
 if (v === 'totals') {
   _applySharedRangeOrDefault('totals-date-from', 'totals-date-to');
   loadTotalsForRange(document.getElementById('totals-date-from').value, document.getElementById('totals-date-to').value);
 }
 document.querySelectorAll('.nav-btn').forEach(x => x.id === 'nav-'+v && x.classList.add('active'));
+updateNavDDActive();
 }
 
 function switchViewDirect(v) {
@@ -3238,6 +3429,207 @@ card.onclick = () => {
 // ══════════════════════════════════
 // SIZE MODAL
 // ══════════════════════════════════
+// ══════════ ADD MENU ITEM / DEAL + MENU MANAGER (saved per branch) ══════════
+let _addMenuMode = 'item';
+let _amPriceMode = 'single';
+let _amSaving = false;
+
+function openAddMenuModal(mode) {
+  const isAdmin = currentStaffRole === 'Admin' || currentStaffRole === 'Manager';
+  if (!isAdmin) { showToast('Only Admin/Manager can add menu items', 'error'); return; }
+  _addMenuMode = mode;
+  const isDeal = mode === 'deal';
+  document.getElementById('am-title').textContent = isDeal ? 'Add Deal' : 'Add Menu Item';
+  document.getElementById('am-item-fields').style.display = isDeal ? 'none' : 'block';
+  document.getElementById('am-deal-fields').style.display = isDeal ? 'block' : 'none';
+  ['am-name','am-price','am-deal-name','am-deal-desc','am-deal-price','am-deal-flavors']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('am-cat-list').innerHTML = Object.keys(menuData)
+    .map(c => `<option value="${c.replace(/"/g,'&quot;')}">`).join('');
+  document.getElementById('am-category').value =
+    (activeCategory && activeCategory !== '__deals__') ? activeCategory : '';
+  setAmPriceMode('single');
+  document.getElementById('am-size-rows').innerHTML = '';
+  addAmSizeRow(); addAmSizeRow();
+  document.getElementById('add-menu-modal').classList.add('open');
+  setTimeout(() => document.getElementById(isDeal ? 'am-deal-name' : 'am-name').focus(), 50);
+}
+
+function setAmPriceMode(m) {
+  _amPriceMode = m;
+  document.getElementById('am-mode-single').classList.toggle('active', m === 'single');
+  document.getElementById('am-mode-sizes').classList.toggle('active', m === 'sizes');
+  document.getElementById('am-single-wrap').style.display = m === 'single' ? 'block' : 'none';
+  document.getElementById('am-sizes-wrap').style.display = m === 'sizes' ? 'block' : 'none';
+}
+
+function addAmSizeRow() {
+  const row = document.createElement('div');
+  row.className = 'am-size-row';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:center;';
+  row.innerHTML = `
+    <input class="recall-input" style="margin-bottom:0;flex:1;" placeholder="Size (e.g. Small)">
+    <input class="recall-input" type="number" min="0" style="margin-bottom:0;width:100px;" placeholder="Rs">
+    <button onclick="this.parentElement.remove()" style="width:30px;height:34px;border-radius:8px;background:rgba(192,57,43,0.15);border:none;color:var(--red);cursor:pointer;font-size:13px;">✕</button>`;
+  document.getElementById('am-size-rows').appendChild(row);
+}
+
+async function saveNewMenuEntry() {
+  if (_amSaving) return;
+  if (!sb || !isOnline) { showToast('No internet — cannot save', 'error'); return; }
+  _amSaving = true;
+  const btn = document.getElementById('am-save-btn');
+  btn.disabled = true; btn.textContent = '⏳ Saving...';
+  try {
+    if (_addMenuMode === 'deal') await _saveNewDeal();
+    else await _saveNewMenuItem();
+  } finally {
+    _amSaving = false;
+    btn.disabled = false; btn.textContent = '💾 Save';
+    if (document.getElementById('menu-mgr-modal').classList.contains('open')) renderMenuManager();
+  }
+}
+
+async function _saveNewMenuItem() {
+  let category = document.getElementById('am-category').value.trim();
+  const name = document.getElementById('am-name').value.trim();
+  if (!category) { showToast('Category is required', 'error'); return; }
+  if (!name) { showToast('Item name is required', 'error'); return; }
+  const existingCat = Object.keys(menuData).find(c => c.toLowerCase() === category.toLowerCase());
+  if (existingCat) category = existingCat;
+  let priceObj;
+  if (_amPriceMode === 'single') {
+    const p = parseInt(document.getElementById('am-price').value);
+    if (!p || p <= 0) { showToast('Enter a valid price', 'error'); return; }
+    priceObj = p;
+  } else {
+    priceObj = {};
+    document.querySelectorAll('#am-size-rows .am-size-row').forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const sz = inputs[0].value.trim();
+      const pr = parseInt(inputs[1].value);
+      if (sz && pr > 0) priceObj[sz] = pr;
+    });
+    if (!Object.keys(priceObj).length) { showToast('Add at least one size with a price', 'error'); return; }
+  }
+  if ((menuData[category] || []).some(i => i.n.toLowerCase() === name.toLowerCase())) {
+    showToast('"' + name + '" already exists in ' + category, 'error'); return;
+  }
+  const res = await sbWrite('custom_menu_items', 'insert', [{
+    branch: activeBranch, category, name,
+    price: typeof priceObj === 'object' ? JSON.stringify(priceObj) : String(priceObj),
+    available: true
+  }]);
+  if (res && res.error) { showToast('⚠️ Could not save item — ' + res.error, 'error'); return; }
+  if (!menuData[category]) menuData[category] = [];
+  menuData[category].push({ n: name, p: priceObj, _custom: true });
+  activeCategory = category;
+  closeModal('add-menu-modal');
+  renderMenu();
+  showToast('Added "' + name + '" to ' + category + ' ✅', 'success');
+}
+
+async function _saveNewDeal() {
+  const name = document.getElementById('am-deal-name').value.trim();
+  const desc = document.getElementById('am-deal-desc').value.trim();
+  const price = parseInt(document.getElementById('am-deal-price').value);
+  const flavors = document.getElementById('am-deal-flavors').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!name) { showToast('Deal name is required', 'error'); return; }
+  if (!price || price <= 0) { showToast('Enter a valid price', 'error'); return; }
+  if (dealsData.some(d => d.n.toLowerCase() === name.toLowerCase())) {
+    showToast('A deal named "' + name + '" already exists', 'error'); return;
+  }
+  const res = await sbWrite('custom_deals', 'insert', [{
+    branch: activeBranch, name, deal_desc: desc, price,
+    flavors: flavors.length ? flavors : null, available: true
+  }]);
+  if (res && res.error) { showToast('⚠️ Could not save deal — ' + res.error, 'error'); return; }
+  dealsData.push({ n: name, d: desc, p: price, _custom: true, _unavailable: false, _flavors: flavors.length ? flavors : null });
+  if (flavors.length) dealFlavorMap[name] = flavors;
+  activeCategory = '__deals__';
+  closeModal('add-menu-modal');
+  renderMenu();
+  showToast('Added deal "' + name + '" ✅', 'success');
+}
+
+function openMenuManager() {
+  if (currentStaffRole !== 'Admin' && currentStaffRole !== 'Manager') { showToast('Admin/Manager only', 'error'); return; }
+  document.getElementById('mm-search').value = '';
+  renderMenuManager();
+  document.getElementById('menu-mgr-modal').classList.add('open');
+}
+
+function renderMenuManager() {
+  const q = (document.getElementById('mm-search').value || '').toLowerCase();
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const enc = encodeURIComponent;
+  const priceTxt = p => typeof p === 'object' ? Object.entries(p).map(([k,v]) => k + ' Rs ' + v).join(' / ') : 'Rs ' + p;
+  const btn = (label, fn, col) => `<button onclick="${fn}" style="padding:4px 9px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:${col};font-size:11px;font-weight:700;cursor:pointer;">${label}</button>`;
+  const row = (name, sub, price, actions) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;margin-bottom:5px;background:var(--surface2);">
+      <div style="min-width:0;"><div style="font-weight:700;font-size:13px;">${esc(name)}</div>
+        <div style="font-size:11px;color:var(--text3);">${esc(sub)} · <span style="color:var(--orange);">${esc(price)}</span></div></div>
+      <div style="display:flex;gap:5px;flex-shrink:0;">${actions}</div></div>`;
+  let html = '';
+  Object.keys(menuData).forEach(cat => {
+    const items = menuData[cat].filter(i => !q || i.n.toLowerCase().includes(q));
+    if (!items.length) return;
+    html += `<div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin:10px 0 6px;">${esc(cat)}</div>`;
+    items.forEach(i => {
+      const acts = i._custom
+        ? (typeof i.p !== 'object' ? btn('✏️ Price', `mmEditPrice('item','${enc(cat)}','${enc(i.n)}')`, '#5dade2') : '')
+          + btn('🗑️', `mmDelete('item','${enc(cat)}','${enc(i.n)}')`, 'var(--red)')
+        : '<span style="font-size:10px;color:var(--text3);">built-in</span>';
+      html += row(i.n, cat, priceTxt(i.p), acts);
+    });
+  });
+  const deals = dealsData.filter(d => !q || d.n.toLowerCase().includes(q));
+  if (deals.length) {
+    html += `<div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin:10px 0 6px;">🔥 Deals</div>`;
+    deals.forEach(d => {
+      const acts = d._custom
+        ? btn('✏️ Price', `mmEditPrice('deal','','${enc(d.n)}')`, '#5dade2') + btn('🗑️', `mmDelete('deal','','${enc(d.n)}')`, 'var(--red)')
+        : '<span style="font-size:10px;color:var(--text3);">built-in</span>';
+      html += row(d.n, d.d || 'Deal', 'Rs ' + d.p, acts);
+    });
+  }
+  document.getElementById('mm-list').innerHTML = html ||
+    '<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">Nothing here yet — use the buttons above to add your first item or deal.</div>';
+}
+
+async function mmEditPrice(kind, catEnc, nameEnc) {
+  const cat = decodeURIComponent(catEnc), name = decodeURIComponent(nameEnc);
+  const entry = kind === 'deal' ? dealsData.find(d => d.n === name) : (menuData[cat] || []).find(i => i.n === name);
+  if (!entry) return;
+  const v = parseInt(prompt('New price (Rs) for "' + name + '":', entry.p));
+  if (!v || v <= 0) { showToast('Enter a valid price', 'error'); return; }
+  const table = kind === 'deal' ? 'custom_deals' : 'custom_menu_items';
+  const payload = kind === 'deal' ? { price: v } : { price: String(v) };
+  const res = await sbWrite(table, 'update', payload, { eq: [['branch', activeBranch], ['name', name]] });
+  if (res && res.error) { showToast('⚠️ Could not update price — ' + res.error, 'error'); return; }
+  entry.p = v;
+  renderMenuManager(); renderMenu();
+  showToast('Price updated ✅', 'success');
+}
+
+async function mmDelete(kind, catEnc, nameEnc) {
+  const cat = decodeURIComponent(catEnc), name = decodeURIComponent(nameEnc);
+  if (!confirm('Delete "' + name + '" from the menu on this branch?')) return;
+  const table = kind === 'deal' ? 'custom_deals' : 'custom_menu_items';
+  const res = await sbWrite(table, 'delete', null, { eq: [['branch', activeBranch], ['name', name]] });
+  if (res && res.error) { showToast('⚠️ Could not delete — ' + res.error, 'error'); return; }
+  if (kind === 'deal') {
+    const i = dealsData.findIndex(d => d.n === name);
+    if (i > -1) dealsData.splice(i, 1);
+    delete dealFlavorMap[name];
+  } else if (menuData[cat]) {
+    menuData[cat] = menuData[cat].filter(i => i.n !== name);
+    if (!menuData[cat].length) delete menuData[cat];
+  }
+  renderMenuManager(); renderMenu();
+  showToast('Deleted "' + name + '"', 'success');
+}
+
 function openSizeModal(item) {
   sizeModalItem = item; sizeModalQty = 1; sizeModalSelected = null;
   document.getElementById('size-modal-title').textContent = item.n;
@@ -3307,7 +3699,7 @@ function openDealWithNote(deal) {
   document.getElementById('size-options').innerHTML = '';
   document.getElementById('size-confirm-btn').onclick = () => {
     const userNote = document.getElementById('size-note').value.trim();
-    const note = (deal.d ? 'Includes: ' + deal.d : '') + (userNote ? ' | ' + userNote : '');
+    const note = userNote;
     addItemToOrder({ n: deal.n, p: deal.p }, deal.p, sizeModalQty, note);
     closeModal('size-modal');
   };
@@ -4532,7 +4924,7 @@ function printTakeawaySlip(sale) {
   const br = BRANCHES[activeBranch];
   const food = sale.items.reduce((s,i) => s + i.price * i.qty, 0);
   const itemsText = sale.items.map(i =>
-    i.qty + 'x ' + i.name + (i.note ? '\n   > ' + i.note : '') + '   Rs ' + (i.price * i.qty)
+    i.qty + 'x ' + i.name + (getDealDesc(i.name) ? '\n   (' + getDealDesc(i.name) + ')' : '') + (i.note ? '\n   > ' + i.note : '') + '   Rs ' + (i.price * i.qty)
   ).join('\n');
 
   document.getElementById('print-area').innerHTML =
@@ -4840,6 +5232,13 @@ async function completePayment() {
 // ══════════════════════════════════
 // PRINT
 // ══════════════════════════════════
+function getDealDesc(name) {
+  if (!name) return '';
+  const n = String(name).trim();
+  const deal = dealsData.find(d => d.n === n) || dealsData.find(d => n.startsWith(d.n + ' ('));
+  return deal && deal.d ? deal.d : '';
+}
+
 async function printKitchenTicket() {
   if (!currentOrder.items.length) { showToast('No items to print', 'error'); return; }
 
@@ -4883,6 +5282,7 @@ const custPhone = document.getElementById('order-customer-phone').value;
     return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px dashed #ccc;">
       <div style="flex:1;">
         ${qtyLine}
+        ${getDealDesc(i.name) ? `<div style="font-size:13px;font-weight:700;color:#333;margin-top:2px;padding-left:18px;">(${getDealDesc(i.name)})</div>` : ''}
         ${i.note ? `<div style="font-size:13px;font-weight:700;color:#333;margin-top:3px;padding-left:18px;">↳ ${i.note}</div>` : ''}
       </div>
     </div>`;
@@ -4974,6 +5374,7 @@ function printReceipt(sale, isSplit=false) {
         <span style="font-size:15px;font-weight:700;">${i.qty}x ${i.name}</span>
         <span style="font-size:15px;font-weight:700;white-space:nowrap;">Rs ${i.price * i.qty}</span>
       </div>
+      ${getDealDesc(i.name) ? `<div style="font-size:12px;font-weight:600;margin-top:2px;padding-left:14px;">(${getDealDesc(i.name)})</div>` : ''}
       ${i.note ? `<div style="font-size:12px;font-weight:600;margin-top:2px;padding-left:14px;">↳ ${i.note}</div>` : ''}
     </div>
   `).join('');
@@ -5280,7 +5681,7 @@ function printDeliverySlip(o) {
         ${o.rider?`<b>Rider :</b> ${o.rider}<br>`:''}
       </div>
       <div style="border-bottom:1px dashed #000;margin:5px 0;"></div>
-      <div style="font-size:13px;font-weight:bold;white-space:pre-wrap;line-height:1.6;">${o.items}</div>
+      <div style="font-size:13px;font-weight:bold;white-space:pre-wrap;line-height:1.6;">${(o.items||'').split('\n').map(l=>{ const m=l.trim().match(/^(\d+)x\s+([^\[]+?)\s*(\[.*)?$/); const d=m?getDealDesc(m[2]):''; return d ? l+'\n   ('+d+')' : l; }).join('\n')}</div>
       <div style="border-bottom:1px dashed #000;margin:5px 0;"></div>
       <div style="font-size:12px;">
         <div style="display:flex;justify-content:space-between;"><span>Shop:</span><span>Rs ${o.subtotal||0}</span></div>
@@ -5445,12 +5846,13 @@ async function renderCreditView() {
           ${c.paid_amount>0?`<div style="font-size:11px;color:var(--green);">Paid: Rs ${c.paid_amount}</div>`:''}
         </div>
       </div>
-      ${balance > 0 ? `<button onclick="recordCreditPayment('${c.id}', ${balance})" style="margin-top:10px;width:100%;padding:8px;border-radius:8px;background:var(--green);color:white;border:none;font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">💰 Record Payment</button>` : `<div style="margin-top:8px;font-size:12px;color:var(--green);font-weight:700;">✅ Fully Paid</div>`}
+      ${balance > 0 && currentStaffRole !== 'Admin' ? `<div style="margin-top:8px;font-size:12px;color:var(--text3);font-weight:700;">🔒 Admin collects payments</div>` : balance > 0 ? `<button onclick="recordCreditPayment('${c.id}', ${balance})" style="margin-top:10px;width:100%;padding:8px;border-radius:8px;background:var(--green);color:white;border:none;font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">💰 Record Payment</button>` : `<div style="margin-top:8px;font-size:12px;color:var(--green);font-weight:700;">✅ Fully Paid</div>`}
     </div>`;
   }).join('');
 }
 
 async function recordCreditPayment(creditId, balanceDue) {
+  if (currentStaffRole !== 'Admin') { showToast('Only Admin can record credit payments', 'error'); return; }
   const amtStr = prompt('Payment amount (Rs) — balance due: Rs ' + balanceDue + ':');
   const amt = parseFloat(amtStr) || 0;
   if (!amt || amt <= 0) { showToast('Valid amount required', 'error'); return; }
@@ -5500,7 +5902,180 @@ async function recordCreditPayment(creditId, balanceDue) {
   if (document.getElementById('view-cash').classList.contains('active')) renderCashView();
 }
 
+const EXP_CATEGORIES = ['Rent','Utilities','Staff Salary','Transport','Maintenance','Supplies','Food/Tea','Gas','Fuel','Govt / Challan','Miscellaneous'];
+let _expFrom = '', _expTo = '';
+const _escExp = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+
 async function addExpense() {
+  if (_sharedDateRange && _sharedDateRange.from && _sharedDateRange.to) {
+    _expFrom = _sharedDateRange.from; _expTo = _sharedDateRange.to;
+  } else {
+    _expFrom = todayKey() + 'T00:00'; _expTo = todayKey() + 'T23:59';
+  }
+  document.getElementById('expenses-modal').classList.add('open');
+  await renderExpenses();
+}
+
+let _expExportRows = [];
+
+function exportExpensesCSV() {
+  if (!_expExportRows.length) { showToast('No expenses to export in this range', 'error'); return; }
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""').replace(/\n/g, ' ') + '"';
+  const tz = { timeZone: 'Asia/Karachi' };
+  const lines = [];
+  lines.push(q('CrustNCheese — ' + activeBranch + ' — Expenses Report'));
+  lines.push(q('Range: ' + _expFrom.replace('T', ' ') + ' to ' + _expTo.replace('T', ' ')));
+  lines.push(q('Exported by ' + currentStaff + ' on ' + new Date().toLocaleString('en-PK', tz)));
+  lines.push('');
+  lines.push(['#', 'Date', 'Time', 'Expense Head', 'Description', 'Amount (Rs)', 'Staff', 'Ref'].map(q).join(','));
+  let total = 0;
+  _expExportRows.forEach((t, i) => {
+    const d = new Date(t.created_at);
+    const amt = Math.abs(t.total || 0);
+    total += amt;
+    const head = t.return_reason || 'Uncategorized';
+    const desc = (t.items_text || '').replace(new RegExp('^' + head.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':?\\s*'), '');
+    lines.push([
+      i + 1,
+      d.toLocaleDateString('en-PK', { ...tz, day: '2-digit', month: 'short', year: 'numeric' }),
+      d.toLocaleTimeString('en-PK', { ...tz, hour: '2-digit', minute: '2-digit', hour12: true }),
+      head, desc, amt, t.staff || '', t.bill_no || ''
+    ].map(q).join(','));
+  });
+  lines.push('');
+  lines.push(['', '', '', '', 'TOTAL', total, '', ''].map(q).join(','));
+  const byHead = {};
+  _expExportRows.forEach(t => { const h = t.return_reason || 'Uncategorized'; byHead[h] = (byHead[h] || 0) + Math.abs(t.total || 0); });
+  lines.push('');
+  lines.push(q('SUMMARY BY HEAD'));
+  lines.push([q('Head'), q('Amount (Rs)')].join(','));
+  Object.entries(byHead).sort((a, b) => b[1] - a[1]).forEach(([h, v]) => lines.push([q(h), q(v)].join(',')));
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'CrustNCheese_' + activeBranch + '_Expenses_' + _expFrom.slice(0, 10) + '_to_' + _expTo.slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Expenses exported ✅', 'success');
+}
+
+async function renderExpenses() {
+  const body = document.getElementById('exp-body');
+  body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);">Loading…</div>';
+  let txs = [];
+  try {
+    const { data, error } = await sb.from('shift_transactions')
+      .select('id,bill_no,type,items_text,total,method,created_at,staff,split_cash,return_reason')
+      .eq('branch', activeBranch)
+      .gte('created_at', _dtLocalToISO(_expFrom)).lte('created_at', _dtLocalToISO(_expTo))
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    txs = data || [];
+  } catch (e) {
+    body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--red);">Could not load expenses — check connection</div>';
+    return;
+  }
+  const exps = txs.filter(t => t.method === 'expense');
+  _expExportRows = exps;
+  const totalExp = exps.reduce((s,t) => s + Math.abs(t.total), 0);
+  const heads = [...new Set([...EXP_CATEGORIES, ...exps.map(t => t.return_reason).filter(Boolean)])];
+  const card = (lbl, val, color) => `<div class="cash-card" style="padding:12px;"><div class="cash-card-label" style="font-size:10px;">${lbl}</div><div class="cash-card-value ${color||''}" style="font-size:20px;">${val}</div></div>`;
+  const listHtml = exps.length ? exps.map(t => {
+    const when = new Date(t.created_at);
+    const canDel = currentStaffRole === 'Admin' || t.staff === currentStaff;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:6px;background:var(--surface2);">
+      <div style="min-width:0;">
+        <div style="font-weight:800;font-size:14px;color:var(--red);">Rs ${Math.abs(t.total)} <span style="color:var(--text);font-weight:700;">— ${_escExp(t.return_reason || 'Uncategorized')}</span></div>
+        <div style="font-size:11px;color:var(--text3);">${_escExp(t.items_text||'')} · ${when.toLocaleDateString('en-PK',{day:'2-digit',month:'short'})} ${when.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true})} · ${_escExp(t.staff||'—')}</div>
+      </div>
+      ${canDel ? `<button onclick="deleteExpense('${t.id}')" style="padding:4px 9px;border-radius:6px;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.3);color:var(--red);font-size:11px;font-weight:700;cursor:pointer;">🗑️</button>` : ''}
+    </div>`;
+  }).join('') : '<div style="padding:18px;text-align:center;color:var(--text3);font-size:12px;">No expenses in this range.</div>';
+
+  const inp = 'width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);font-family:\'Outfit\',sans-serif;font-size:14px;outline:none;';
+  body.innerHTML = `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+      <input type="datetime-local" step="60" id="exp-from" value="${_expFrom}" style="${inp}width:auto;flex:1;">
+      <span style="font-size:12px;color:var(--text3);">to</span>
+      <input type="datetime-local" step="60" id="exp-to" value="${_expTo}" style="${inp}width:auto;flex:1;">
+      <button class="refresh-btn" onclick="loadExpRange()">↻ Load</button>
+      <button class="refresh-btn" onclick="exportExpensesCSV()" style="color:var(--green);border-color:var(--green);">📊 Excel</button>
+    </div>
+    <div style="margin-bottom:14px;">${card('Total Expenses', '−Rs ' + totalExp, 'red')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">
+      ${EXP_CATEGORIES.map(c => `<button type="button" onclick="document.getElementById('exp-category').value=this.textContent"
+        style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">${_escExp(c)}</button>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <input type="number" id="exp-amount" min="0" placeholder="Amount (Rs)" style="${inp}">
+      <input type="text" id="exp-category" list="exp-cat-list" autocomplete="off" placeholder="Expense head (pick or type)" style="${inp}">
+    </div>
+    <datalist id="exp-cat-list">${heads.map(h => `<option value="${_escExp(h)}">`).join('')}</datalist>
+    <input type="text" id="exp-desc" placeholder="Description (optional)" style="${inp}margin-bottom:8px;">
+    <button class="pay-complete-btn" id="btn-exp-add" style="margin-bottom:16px;padding:11px;font-size:14px;" onclick="submitExpense()">+ Add Expense</button>
+    <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Expenses (${exps.length})</div>
+    <div style="max-height:260px;overflow-y:auto;">${listHtml}</div>`;
+}
+
+async function loadExpRange() {
+  const f = document.getElementById('exp-from').value, t = document.getElementById('exp-to').value;
+  if (!f || !t) { showToast('Pick both From and To', 'error'); return; }
+  if (t < f) { showToast('"To" must be after "From"', 'error'); return; }
+  _expFrom = f; _expTo = t;
+  await renderExpenses();
+}
+
+async function submitExpense() {
+  const amt = parseFloat(document.getElementById('exp-amount').value) || 0;
+  if (!amt || amt <= 0) { showToast('Enter a valid amount', 'error'); return; }
+  const category = document.getElementById('exp-category').value.trim();
+  if (!category) { showToast('Type the expense head', 'error'); return; }
+  const desc = document.getElementById('exp-desc').value.trim();
+  if (amt > cashInHand && !confirm('⚠️ Expense (Rs ' + amt + ') exceeds cash in drawer (Rs ' + cashInHand + ').\n\nRecord anyway?')) return;
+  const btn = document.getElementById('btn-exp-add');
+  btn.disabled = true; btn.textContent = '⏳ Saving…';
+  const label = desc ? category + ': ' + desc : category;
+  const _expId = genId();
+  const res = await sbWrite('shift_transactions', 'insert', [{
+    id: _expId, branch: activeBranch, date: todayKey(),
+    bill_no: 'EXP-' + Date.now().toString(36).toUpperCase(),
+    type: 'Expense', table_loc: '', items_text: label,
+    subtotal: amt, total: -amt, method: 'expense',
+    staff: currentStaff, return_reason: category
+  }]);
+  if (res && res.error) {
+    btn.disabled = false; btn.textContent = '+ Add Expense';
+    showToast('⚠️ Could not save expense — check your internet. Not recorded.', 'error');
+    return;
+  }
+  completedOrders.push({
+    id: _expId, billNo: 'EXP', table: '', type: 'Expense',
+    items: [{ name: label, price: amt, qty: 1, note: '' }],
+    total: -amt, method: 'expense', time: new Date(),
+    staff: currentStaff, branch: activeBranch, sc: 0, disc: 0, expenseDesc: label
+  });
+  cashInHand = computeCashInHand(completedOrders, openingBalance);
+  document.getElementById('bar-cash').textContent = 'Rs ' + cashInHand;
+  if (document.getElementById('view-cash').classList.contains('active')) renderCashView();
+  showToast('🧾 Expense: Rs ' + amt + ' — ' + category, 'error');
+  await renderExpenses();
+}
+
+async function deleteExpense(id) {
+  if (!confirm('Delete this expense entry?')) return;
+  const { error } = await sb.from('shift_transactions').delete().eq('id', id);
+  if (error) { showToast('Could not delete: ' + error.message, 'error'); return; }
+  const idx = completedOrders.findIndex(o => o.id === id);
+  if (idx > -1) completedOrders.splice(idx, 1);
+  cashInHand = computeCashInHand(completedOrders, openingBalance);
+  document.getElementById('bar-cash').textContent = 'Rs ' + cashInHand;
+  if (document.getElementById('view-cash').classList.contains('active')) renderCashView();
+  showToast('Expense deleted', 'success');
+  await renderExpenses();
+}
+
+async function _legacyAddExpense() {
   const desc = prompt('Expense description (e.g. Stationery, Cleaning, Repair):');
   if (!desc || !desc.trim()) { showToast('Description required', 'error'); return; }
   
@@ -5554,6 +6129,437 @@ async function addExpense() {
   saveTodaySales();
   renderCashView();
   showToast('🧾 Expense: Rs ' + amt + ' — ' + desc.trim(), 'error');
+}
+
+// ══════════ CASHIER DECLARATION + CROSS-CHECK ══════════
+const _xcEsc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const _XC_NON_BILL = ['cash-in','cash-out','void','return','expense','discarded','deleted-delivery','item-void'];
+const _declInp = 'width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:11px 12px;color:var(--text);font-family:Outfit,sans-serif;font-size:14px;outline:none;';
+
+async function _xcFetchAll(fromISO, toISO, staff) {
+  let all = [], from = 0;
+  while (true) {
+    let q = sb.from('shift_transactions').select('*').eq('branch', activeBranch)
+      .gte('created_at', fromISO).lte('created_at', toISO);
+    if (staff) q = q.eq('staff', staff);
+    const { data, error } = await q.order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, from + 999);
+    if (error) throw error;
+    all = all.concat(data || []);
+    if (!data || data.length < 1000) break;
+    from += 1000;
+  }
+  return all;
+}
+
+function _xcCalc(rows) {
+  const s = (arr, f) => arr.reduce((a, t) => a + f(t), 0);
+  const bills = rows.filter(t => !_XC_NON_BILL.includes(t.method));
+  const cashBills = bills.filter(t => t.method === 'cash');
+  // CrustNCheese riders keep the delivery fee on cash deliveries, so it never reaches the drawer
+  const cash = s(cashBills, t => t.total || 0) - s(cashBills, t => _deliveryFeeHeldByRider(t))
+             + s(bills.filter(t => t.method === 'split'), t => t.split_cash || 0);
+  const online = s(bills.filter(t => ['jazzcash','card','bank','foodpanda'].includes(t.method)), t => t.total || 0)
+               + s(bills.filter(t => t.method === 'split'), t => t.split_card || 0);
+  const expRows = rows.filter(t => t.method === 'expense');
+  const exp = s(expRows, t => Math.abs(t.total || 0));
+  return { cash, online, exp, expRows };
+}
+
+// ---------- CASHIER SIDE ----------
+let _declResolve = null, _declSession = '', _declAttempt = 1, _declResume = null;
+
+function askCashierDeclaration() {
+  return new Promise(resolve => {
+    _declResolve = resolve;
+    if (_declResume) { _declSession = _declResume.session; _declAttempt = _declResume.attempt; }
+    else { _declSession = genId(); _declAttempt = 1; }
+    renderDeclForm();
+    document.getElementById('decl-modal').classList.add('open');
+  });
+}
+
+function renderDeclForm() {
+  document.getElementById('decl-sub').textContent = _declAttempt === 1
+    ? 'Enter the figures for your shift. Use 0 if none.'
+    : 'Please re-check and enter the correct figures.';
+  document.getElementById('decl-body').innerHTML = `
+    <div class="of-label">Cash amount collected (Rs)</div>
+    <input class="of-input" type="number" id="decl-cash" min="0" placeholder="0">
+    <div class="of-label">Online amount (JazzCash + Card + Bank + FoodPanda) (Rs)</div>
+    <input class="of-input" type="number" id="decl-online" min="0" placeholder="0">
+    <div class="of-label" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Expenses paid — what for, and how much</span>
+      <span style="color:var(--orange);font-weight:800;">Total: <span id="decl-exp-total">Rs 0</span></span>
+    </div>
+    <div id="decl-exp-list" style="max-height:32vh;overflow-y:auto;margin:8px 0;"></div>
+    <button type="button" onclick="declAddExpenseRow()" style="width:100%;padding:8px;border-radius:8px;background:rgba(39,174,96,0.1);border:1px dashed rgba(39,174,96,0.3);color:var(--green);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:12px;">+ Add another expense</button>
+    ${_declAttempt > 1 ? `<div class="of-label" style="color:var(--orange);">Reason for correction (required)</div>
+    <textarea id="decl-reason" rows="2" placeholder="e.g. counted wrong, forgot an expense, put JazzCash in cash…" style="${_declInp}resize:none;margin-bottom:12px;"></textarea>` : ''}
+    <div class="modal-actions" style="margin-top:6px;">
+      ${_declAttempt === 1 ? '<button class="modal-cancel" onclick="cancelDeclaration()">Back</button>' : ''}
+      <button class="modal-confirm" id="decl-submit-btn" onclick="submitDeclaration()">Submit</button>
+    </div>`;
+  declAddExpenseRow();
+}
+
+function declAddExpenseRow() {
+  const row = document.createElement('div');
+  row.className = 'decl-exp-row';
+  row.style.cssText = 'display:grid;grid-template-columns:minmax(0,1fr) 110px 38px;gap:8px;margin-bottom:8px;align-items:center;';
+  row.innerHTML = `
+    <input type="text" class="decl-exp-desc" placeholder="Expense head / what for" style="${_declInp}">
+    <input type="number" class="decl-exp-amt" min="0" placeholder="Rs" oninput="declUpdateExpTotal()" style="${_declInp}color:var(--orange);font-weight:700;text-align:center;">
+    <button type="button" onclick="declRemoveExpenseRow(this)" style="height:40px;border-radius:9px;background:rgba(192,57,43,0.15);border:none;color:var(--red);cursor:pointer;">✕</button>`;
+  document.getElementById('decl-exp-list').appendChild(row);
+}
+function declRemoveExpenseRow(btn) {
+  btn.closest('.decl-exp-row').remove();
+  if (!document.querySelector('.decl-exp-row')) declAddExpenseRow();
+  declUpdateExpTotal();
+}
+function declUpdateExpTotal() {
+  let t = 0;
+  document.querySelectorAll('.decl-exp-amt').forEach(i => { t += Number(i.value) || 0; });
+  document.getElementById('decl-exp-total').textContent = 'Rs ' + Math.round(t).toLocaleString('en-PK');
+}
+function cancelDeclaration() {
+  closeModal('decl-modal');
+  if (_declResolve) _declResolve(false);
+  _declResolve = null;
+}
+function _declFinish() {
+  _declResume = null;
+  try { localStorage.removeItem('CrustNCheese_shift_start_' + activeBranch + '_' + currentStaff); } catch(e) {}
+  closeModal('decl-modal');
+  if (_declResolve) _declResolve(true);
+  _declResolve = null;
+}
+
+async function submitDeclaration() {
+  const cashV = document.getElementById('decl-cash').value, onlineV = document.getElementById('decl-online').value;
+  if ([cashV, onlineV].some(v => v === '' || isNaN(Number(v)) || Number(v) < 0)) { showToast('Enter cash and online amounts (use 0 if none)', 'error'); return; }
+  const cash = Math.round(Number(cashV)), online = Math.round(Number(onlineV));
+  const expItems = []; let bad = false;
+  document.querySelectorAll('.decl-exp-row').forEach(row => {
+    const desc = row.querySelector('.decl-exp-desc').value.trim();
+    const amtV = row.querySelector('.decl-exp-amt').value;
+    if (!desc && amtV === '') return;
+    if (!desc || amtV === '' || isNaN(Number(amtV)) || Number(amtV) <= 0) { bad = true; return; }
+    expItems.push({ desc, amount: Math.round(Number(amtV)) });
+  });
+  if (bad) { showToast('Each expense needs a description and an amount above 0', 'error'); return; }
+  const exp = expItems.reduce((s, i) => s + i.amount, 0);
+  let reason = null;
+  if (_declAttempt > 1) {
+    reason = (document.getElementById('decl-reason').value || '').trim();
+    if (!reason) { showToast('Write the reason for changing your figures', 'error'); return; }
+  }
+
+  const btn = document.getElementById('decl-submit-btn');
+  btn.disabled = true;
+  let sys;
+  try {
+    const rows = await _xcFetchAll(shiftStart ? shiftStart.toISOString() : _dtLocalToISO(todayKey() + 'T00:00'), new Date().toISOString(), currentStaff);
+    sys = _xcCalc(rows);
+  } catch (e) { btn.disabled = false; showToast('Could not load system figures — check internet', 'error'); return; }
+
+  const sc = Math.round(sys.cash), so = Math.round(sys.online), se = Math.round(sys.exp);
+  const mismatch = cash !== (sc - se) || online !== so || exp !== se;
+
+  // SAVED FIRST — the cashier sees no system number until this succeeds.
+  const res = await sbWrite('cashier_declarations', 'insert', [{
+    id: genId(), session_id: _declSession, attempt_no: _declAttempt,
+    branch: activeBranch, date: todayKey(), staff: currentStaff,
+    cash_amount: cash, online_amount: online, expenses_amount: exp, expense_items: expItems,
+    pos_cash: sc, pos_online: so, pos_expenses: se, has_mismatch: mismatch, reason,
+    shift_start: shiftStart ? shiftStart.toISOString() : null,
+    shift_end: new Date().toISOString()
+  }]);
+  btn.disabled = false;
+  if (res && res.error) { showToast('⚠️ Could not save your report — check internet / SQL. Try again.', 'error'); return; }
+
+  if (!mismatch) { showToast('✅ Report matches the system', 'success'); _declFinish(); return; }
+  if (_declAttempt > 1) { showToast('Correction submitted and recorded', 'success'); _declFinish(); return; }
+  renderDeclResult({ cash, online, exp }, { cash: sc - se, online: so, exp: se }, sys.expRows);
+}
+
+function renderDeclResult(ent, sys, expRows) {
+  const R = v => 'Rs ' + Math.round(v).toLocaleString('en-PK');
+  const line = (lbl, a, b) => {
+    const d = a - b;
+    return `<tr><td style="padding:7px 8px;font-weight:600;">${lbl}</td>
+      <td style="padding:7px 8px;text-align:right;">${R(a)}</td>
+      <td style="padding:7px 8px;text-align:right;color:var(--orange);font-weight:800;">${R(b)}</td>
+      <td style="padding:7px 8px;text-align:right;font-weight:800;color:${d ? 'var(--red)' : 'var(--green)'};">${d ? (d > 0 ? '+' : '−') + R(Math.abs(d)) : '✓'}</td></tr>`;
+  };
+  const sysExp = expRows.length
+    ? expRows.map(t => `<div>${_xcEsc(t.items_text || '')} — ${R(Math.abs(t.total))}</div>`).join('')
+    : '<div>No expenses recorded in the system</div>';
+  const canRetry = _declAttempt === 1;
+  document.getElementById('decl-sub').textContent = 'Please review your figures';
+  document.getElementById('decl-body').innerHTML = `
+    <div style="background:rgba(192,57,43,0.12);border:1px solid rgba(192,57,43,0.4);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--red);">⚠️ Your figures don't match the system. Your entry has been recorded.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px;">
+      <thead><tr style="color:var(--text3);font-size:11px;text-transform:uppercase;"><th style="text-align:left;padding:6px 8px;">Item</th><th style="text-align:right;padding:6px 8px;">You entered</th><th style="text-align:right;padding:6px 8px;">System</th><th style="text-align:right;padding:6px 8px;">Diff</th></tr></thead>
+      <tbody>${line('Cash', ent.cash, sys.cash)}${line('Online', ent.online, sys.online)}${line('Expenses', ent.exp, sys.exp)}</tbody></table>
+    <div style="font-size:12px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:12px;line-height:1.6;"><b>Expenses in the system:</b>${sysExp}</div>
+    ${canRetry
+      ? '<button class="pay-complete-btn" style="padding:12px;font-size:14px;" onclick="_declAttempt=2;renderDeclForm();">Re-enter correct values</button>'
+      : '<button class="pay-complete-btn" style="padding:12px;font-size:14px;" onclick="_declFinish()">Finish &amp; Logout</button>'}`;
+}
+
+// ---------- ADMIN SIDE ----------
+let _xcRows = [], _xcOpening = 0, _xcDecls = [], _xcStaffRows = [];
+
+async function loadCrossCheck() {
+  const fromVal = document.getElementById('xc-date-from').value || (todayKey() + 'T00:00');
+  const toVal = document.getElementById('xc-date-to').value || (todayKey() + 'T23:59');
+  const content = document.getElementById('xc-content');
+  if (!isOnline) { showToast('No internet connection', 'error'); return; }
+  content.innerHTML = '<div style="text-align:center;padding:36px;color:var(--text3);">Loading…</div>';
+  const fromISO = _dtLocalToISO(fromVal), toISO = _dtLocalToISO(toVal);
+  try {
+    _xcRows = await _xcFetchAll(fromISO, toISO);
+    const { data: decls, error: dErr } = await sb.from('cashier_declarations').select('*')
+      .eq('branch', activeBranch).gte('shift_end', fromISO).lte('shift_end', toISO)
+      .order('created_at', { ascending: true });
+    if (dErr) throw dErr;
+    _xcDecls = decls || [];
+    const { data: st } = await sb.from('staff').select('name,role');
+    _xcStaffRows = st || [];
+  } catch (e) {
+    content.innerHTML = '<div style="text-align:center;padding:36px;color:var(--red);">Could not load: ' + _xcEsc(e.message) + '</div>';
+    return;
+  }
+  const ob = await fetchOpeningBalance(activeBranch, fromVal.slice(0, 10));
+  _xcOpening = ob.amount;
+  const sel = document.getElementById('xc-staff');
+  const prev = sel.value;
+  const names = [...new Set([..._xcRows.map(t => t.staff), ..._xcDecls.map(d => d.staff)].filter(Boolean))];
+  sel.innerHTML = '<option value="">All staff</option>' + names.map(n => '<option value="' + _xcEsc(n) + '">' + _xcEsc(n) + '</option>').join('');
+  sel.value = names.includes(prev) ? prev : '';
+  renderCrossCheck();
+}
+
+function renderCrossCheck() {
+  const content = document.getElementById('xc-content');
+  const staff = document.getElementById('xc-staff').value;
+  const rows = staff ? _xcRows.filter(t => t.staff === staff) : _xcRows;
+  const decls = staff ? _xcDecls.filter(d => d.staff === staff) : _xcDecls;
+  const R = v => 'Rs ' + Math.round(v || 0).toLocaleString('en-PK');
+  const sum = (arr, f) => arr.reduce((s, t) => s + f(t), 0);
+  const fmtT = v => new Date(v).toLocaleString('en-PK', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true });
+
+  const bills = rows.filter(t => !_XC_NON_BILL.includes(t.method));
+  const net = sum(bills, t => t.total || 0);
+  const calc = _xcCalc(rows);
+  const mapped = rows.map(t => ({ itemsText: t.items_text, total: t.total, method: t.method, splitCash: t.split_cash || 0, type: t.type, deliveryCharge: t.delivery_charge || 0, kitchenOrderId: t.kitchen_order_id }));
+  const expected = staff ? null : computeCashInHand(mapped, _xcOpening);
+  const by = m => rows.filter(t => t.method === m);
+  const bankTotal = sum(bills.filter(t => t.method === 'bank'), t => t.total || 0);
+  const onlineTotal = sum(bills.filter(t => ['jazzcash','card','foodpanda'].includes(t.method)), t => t.total || 0)
+                    + sum(bills.filter(t => t.method === 'split'), t => t.split_card || 0);
+  const cashTotal = net - onlineTotal - bankTotal;
+
+  const diffCell = (say, pos) => {
+    const d = Math.round(Number(say) - Number(pos));
+    return d === 0 ? '<span style="color:var(--green);font-weight:800;">✓ Match</span>'
+      : '<span style="color:var(--red);font-weight:800;">' + (d > 0 ? '+' : '−') + 'Rs ' + Math.abs(d).toLocaleString('en-PK') + (d > 0 ? ' (cashier higher)' : ' (cashier lower)') + '</span>';
+  };
+  const expDetail = d => {
+    const items = Array.isArray(d.expense_items) ? d.expense_items : [];
+    return items.length ? '<div style="font-size:11px;font-weight:500;color:var(--text2);margin-top:4px;line-height:1.6;">' + items.map(i => _xcEsc(i.desc) + ' — Rs ' + Number(i.amount).toLocaleString('en-PK')).join('<br>') + '</div>' : '';
+  };
+
+  const sessions = {};
+  decls.forEach(d => { const k = d.session_id || d.id; (sessions[k] = sessions[k] || []).push(d); });
+  const sessHtml = Object.values(sessions).map(list => {
+    list.sort((a, b) => a.attempt_no - b.attempt_no);
+    const first = list[0], last = list[list.length - 1];
+    const chip = first.has_mismatch ? (last.has_mismatch ? ['STILL WRONG', 'var(--red)'] : ['WRONG ON 1ST TRY', 'var(--red)']) : ['CLEAN', 'var(--green)'];
+    const body = list.map(d => {
+      const items = [['Cash', d.cash_amount, (d.pos_cash || 0) - (d.pos_expenses || 0)], ['Online', d.online_amount, d.pos_online], ['Expenses', d.expenses_amount, d.pos_expenses]];
+      return items.map((it, i) => `<tr${i === 0 ? ' style="border-top:2px solid var(--border);"' : ''}>
+        ${i === 0 ? `<td rowspan="3" style="font-weight:800;vertical-align:top;white-space:nowrap;">Attempt ${d.attempt_no}<br><span style="font-size:11px;color:var(--text3);font-weight:600;">${fmtT(d.created_at)}</span><br><button onclick="openDeclEdit('${d.id}')" style="margin-top:6px;padding:3px 10px;border-radius:6px;background:rgba(142,68,173,0.15);border:1px solid rgba(142,68,173,0.4);color:#bb77ff;font-family:Outfit,sans-serif;font-size:11px;font-weight:800;cursor:pointer;">✏️ Edit</button></td>` : ''}
+        <td style="font-weight:600;">${it[0]}${it[0] === 'Expenses' ? expDetail(d) : ''}</td>
+        <td style="text-align:right;font-weight:700;color:var(--gold);">${R(it[1])}</td>
+        <td style="text-align:right;font-weight:700;color:var(--green);">${R(it[2])}</td>
+        <td>${diffCell(it[1], it[2])}</td></tr>`).join('')
+        + (d.reason ? `<tr><td></td><td colspan="4" style="color:var(--orange);font-size:12px;font-weight:700;">Reason for change: ${_xcEsc(d.reason)}</td></tr>` : '');
+    }).join('');
+    return `<div class="cb-section" style="margin-bottom:12px;">
+      <div class="cb-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>👤 ${_xcEsc(first.staff)} · shift ${first.shift_start ? fmtT(first.shift_start) : '?'} → ${fmtT(first.shift_end)}</span>
+        <span style="background:${chip[1]};color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;">${chip[0]}</span>
+      </div>
+      <table class="transactions-table"><thead><tr><th></th><th>Item</th><th style="text-align:right;">Cashier says</th><th style="text-align:right;">POS actual</th><th>Difference</th></tr></thead><tbody>${body}</tbody></table>
+    </div>`;
+  }).join('');
+
+  const roleOf = n => (_xcStaffRows.find(s => s.name === n) || {}).role;
+  const declared = new Set(_xcDecls.map(d => d.staff));
+  const missing = [...new Set(rows.map(t => t.staff).filter(Boolean))].filter(n => !declared.has(n) && !['Admin','Manager'].includes(roleOf(n)));
+
+  const listTable = (title, arr) => !arr.length ? '' : `
+    <div class="cb-section" style="margin-bottom:12px;">
+      <div class="cb-head">${title} (${arr.length}) — ${R(sum(arr, t => Math.abs(t.total)))}</div>
+      <table class="transactions-table"><thead><tr><th>Time</th><th>Staff</th><th>Details</th><th style="text-align:right;">Amount</th></tr></thead>
+      <tbody>${arr.map(t => `<tr><td>${fmtT(t.created_at)}</td><td>${_xcEsc(t.staff || '—')}</td>
+        <td style="color:var(--text2);font-size:12px;">${_xcEsc([t.items_text, (t.return_reason && t.return_reason !== t.items_text) ? '— ' + t.return_reason : ''].filter(Boolean).join(' '))}</td>
+        <td style="text-align:right;font-weight:700;">${R(Math.abs(t.total))}</td></tr>`).join('')}</tbody></table>
+    </div>`;
+
+  const sumRow = (l, v, c) => `<div style="display:flex;justify-content:space-between;padding:9px 16px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:14px;"><span>${l}</span><span style="font-weight:800;color:${c || 'var(--text)'};">${R(v)}</span></div>`;
+
+  content.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:18px;">
+      <div class="cs-card green"><div class="cs-val">${R(net)}</div><div class="cs-lbl">Net Sales (${bills.length} bills)</div></div>
+      <div class="cs-card red"><div class="cs-val">${R(calc.cash)}</div><div class="cs-lbl">All Cash</div></div>
+      <div class="cs-card blue"><div class="cs-val">${R(calc.online)}</div><div class="cs-lbl">All Online (incl. Panda)</div></div>
+      <div class="cs-card red"><div class="cs-val">${R(calc.exp)}</div><div class="cs-lbl">All Expenses (${calc.expRows.length})</div></div>
+      <div class="cs-card green"><div class="cs-val">${expected === null ? '—' : R(expected)}</div><div class="cs-lbl">Expected in Drawer${staff ? ' (All staff only)' : ''}</div></div>
+    </div>
+    <div class="cb-section" style="margin-bottom:14px;max-width:460px;">
+      <div class="cb-head">📒 Summary for selected period</div>
+      ${sumRow('Gross Sale', net, 'var(--green)')}
+      ${sumRow('Cash Sales', cashTotal, 'var(--green)')}
+      ${sumRow('Online (JazzCash / Card / FoodPanda)', onlineTotal, 'var(--blue)')}
+      ${sumRow('Banking (Bank transfer)', bankTotal, 'var(--blue)')}
+      ${sumRow('Expenses', calc.exp, 'var(--red)')}
+      <div style="display:flex;justify-content:space-between;padding:12px 16px;font-size:16px;font-weight:900;background:var(--surface2);"><span>Day Closing</span><span style="color:var(--orange);">${R(net - calc.exp)}</span></div>
+    </div>
+    ${missing.length ? `<div style="background:rgba(230,126,34,0.12);border:1px solid rgba(230,126,34,0.4);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--orange);">⚠️ No end-of-shift report from: <b>${missing.map(_xcEsc).join(', ')}</b> (still working, or logged out without submitting — Admin/Manager logouts aren't asked).</div>` : ''}
+    <div style="font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin:6px 0 8px;">Cashier's report vs POS — matched per person and shift</div>
+    ${sessHtml || '<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">No end-of-shift reports in this range yet.</div>'}
+    ${listTable('🧾 Expenses', by('expense'))}
+    ${listTable('− Cash Outs', by('cash-out'))}
+    ${listTable('+ Cash Ins', by('cash-in'))}
+    ${listTable('↩ Returns / Refunds', by('return'))}
+    ${listTable('🗑️ Voided Orders', by('void'))}
+    ${listTable('Items Removed After KOT', by('item-void'))}
+    ${listTable('Discarded Orders', by('discarded'))}
+    ${listTable('Deleted Delivery Orders', by('deleted-delivery'))}
+    <div style="font-size:11px;color:var(--text3);margin-top:8px;">POS actual = that cashier's own bills between their login and logout. Cash excludes delivery fees kept by riders. Online = JazzCash + Card + Bank + FoodPanda.</div>`;
+}
+
+// ---------- ADMIN: EDIT A CASHIER REPORT ----------
+let _deRow = null;
+const _isoToPKLocal = iso => iso ? new Date(new Date(iso).getTime() + 5*3600*1000).toISOString().slice(0,16) : '';
+
+function _deEarlierSession(d) {
+  const cands = _xcDecls.filter(x => x.staff === d.staff && x.session_id !== d.session_id && new Date(x.created_at) < new Date(d.created_at));
+  if (!cands.length) return null;
+  cands.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  const sid = cands[0].session_id;
+  const rows = _xcDecls.filter(x => x.session_id === sid).sort((a,b) => a.attempt_no - b.attempt_no);
+  return { session_id: sid, shift_start: rows[0].shift_start, nextAttempt: rows[rows.length-1].attempt_no + 1 };
+}
+
+function openDeclEdit(id) {
+  const d = _xcDecls.find(x => String(x.id) === String(id));
+  if (!d) { showToast('Report not found — click Load and try again', 'error'); return; }
+  _deRow = d;
+  const items = Array.isArray(d.expense_items) ? d.expense_items : [];
+  const mg = _deEarlierSession(d);
+  document.getElementById('de-sub').textContent = d.staff + ' · Attempt ' + d.attempt_no + ' · submitted ' +
+    new Date(d.created_at).toLocaleString('en-PK', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true });
+  document.getElementById('de-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div><div class="of-label">Shift start</div><input type="datetime-local" step="60" id="de-start" value="${_isoToPKLocal(d.shift_start)}" style="${_declInp}"></div>
+      <div><div class="of-label">Shift end</div><input type="datetime-local" step="60" id="de-end" value="${_isoToPKLocal(d.shift_end)}" style="${_declInp}"></div>
+    </div>
+    <div class="of-label" style="margin-top:10px;">Cash amount (Rs)</div>
+    <input class="of-input" type="number" id="de-cash" min="0" value="${d.cash_amount}">
+    <div class="of-label">Online amount (Rs)</div>
+    <input class="of-input" type="number" id="de-online" min="0" value="${d.online_amount}">
+    <div class="of-label" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Expenses</span><span style="color:var(--orange);font-weight:800;">Total: <span id="de-exp-total">Rs 0</span></span>
+    </div>
+    <div id="de-exp-list" style="max-height:26vh;overflow-y:auto;margin:8px 0;"></div>
+    <button type="button" onclick="deAddExpRow()" style="width:100%;padding:8px;border-radius:8px;background:rgba(39,174,96,0.1);border:1px dashed rgba(39,174,96,0.3);color:var(--green);font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:12px;">+ Add expense row</button>
+    ${mg ? `<label style="display:flex;gap:8px;align-items:flex-start;background:rgba(41,128,185,0.1);border:1px solid rgba(41,128,185,0.3);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#5dade2;cursor:pointer;">
+      <input type="checkbox" id="de-merge" style="margin-top:2px;">
+      <span>🔗 <b>Same shift as ${_xcEsc(d.staff)}'s earlier report</b> — merge this into it as Attempt ${mg.nextAttempt} and measure POS from the original shift start.</span></label>` : ''}
+    <div class="of-label" style="color:var(--orange);">Reason for edit (required)</div>
+    <textarea id="de-note" rows="2" placeholder="e.g. power cut while closing, figures corrected after recount…" style="${_declInp}resize:none;margin-bottom:12px;"></textarea>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal('decl-edit-modal')">Cancel</button>
+      <button class="modal-confirm" id="de-save-btn" onclick="saveDeclEdit()">Recalculate &amp; Save</button>
+    </div>`;
+  if (items.length) items.forEach(i => deAddExpRow(i.desc, i.amount)); else deAddExpRow();
+  deUpdateExpTotal();
+  document.getElementById('decl-edit-modal').classList.add('open');
+}
+
+function deAddExpRow(desc = '', amt = '') {
+  const row = document.createElement('div');
+  row.className = 'de-exp-row';
+  row.style.cssText = 'display:grid;grid-template-columns:minmax(0,1fr) 110px 38px;gap:8px;margin-bottom:8px;align-items:center;';
+  row.innerHTML = `
+    <input type="text" class="de-exp-desc" value="${_xcEsc(desc)}" placeholder="Expense head / what for" style="${_declInp}">
+    <input type="number" class="de-exp-amt" min="0" value="${amt}" placeholder="Rs" oninput="deUpdateExpTotal()" style="${_declInp}color:var(--orange);font-weight:700;text-align:center;">
+    <button type="button" onclick="this.closest('.de-exp-row').remove();deUpdateExpTotal()" style="height:40px;border-radius:9px;background:rgba(192,57,43,0.15);border:none;color:var(--red);cursor:pointer;">✕</button>`;
+  document.getElementById('de-exp-list').appendChild(row);
+}
+function deUpdateExpTotal() {
+  let t = 0;
+  document.querySelectorAll('.de-exp-amt').forEach(i => { t += Number(i.value) || 0; });
+  const el = document.getElementById('de-exp-total');
+  if (el) el.textContent = 'Rs ' + Math.round(t).toLocaleString('en-PK');
+}
+
+async function saveDeclEdit() {
+  const d = _deRow; if (!d) return;
+  const cashV = document.getElementById('de-cash').value, onlineV = document.getElementById('de-online').value;
+  if ([cashV, onlineV].some(v => v === '' || isNaN(Number(v)) || Number(v) < 0)) { showToast('Enter cash and online amounts (0 if none)', 'error'); return; }
+  const expItems = []; let bad = false;
+  document.querySelectorAll('.de-exp-row').forEach(row => {
+    const desc = row.querySelector('.de-exp-desc').value.trim();
+    const amtV = row.querySelector('.de-exp-amt').value;
+    if (!desc && amtV === '') return;
+    if (!desc || amtV === '' || isNaN(Number(amtV)) || Number(amtV) <= 0) { bad = true; return; }
+    expItems.push({ desc, amount: Math.round(Number(amtV)) });
+  });
+  if (bad) { showToast('Each expense needs a description and an amount above 0', 'error'); return; }
+  const note = (document.getElementById('de-note').value || '').trim();
+  if (!note) { showToast('Write the reason for this edit', 'error'); return; }
+  const startV = document.getElementById('de-start').value, endV = document.getElementById('de-end').value;
+  if (!startV || !endV || endV < startV) { showToast('Check the shift start / end times', 'error'); return; }
+
+  const cash = Math.round(Number(cashV)), online = Math.round(Number(onlineV));
+  const exp = expItems.reduce((s, i) => s + i.amount, 0);
+  let sessionId = d.session_id, attemptNo = d.attempt_no, startISO = _dtLocalToISO(startV);
+  const endISO = _dtLocalToISO(endV);
+  const mgBox = document.getElementById('de-merge');
+  if (mgBox && mgBox.checked) {
+    const mg = _deEarlierSession(d);
+    if (mg) { sessionId = mg.session_id; attemptNo = mg.nextAttempt; if (mg.shift_start) startISO = mg.shift_start; }
+  }
+
+  const btn = document.getElementById('de-save-btn');
+  btn.disabled = true; btn.textContent = '⏳ Saving…';
+  let sys;
+  try { sys = _xcCalc(await _xcFetchAll(startISO, endISO, d.staff)); }
+  catch (e) { btn.disabled = false; btn.textContent = 'Recalculate & Save'; showToast('Could not load POS figures — check internet', 'error'); return; }
+
+  const sc = Math.round(sys.cash), so = Math.round(sys.online), se = Math.round(sys.exp);
+  const mismatch = cash !== (sc - se) || online !== so || exp !== se;
+  const stamp = new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+  const reason = (d.reason ? d.reason + ' | ' : '') + '[Admin edit by ' + currentStaff + ' ' + stamp + ': ' + note + ']';
+
+  const { data, error } = await sb.from('cashier_declarations').update({
+    session_id: sessionId, attempt_no: attemptNo,
+    cash_amount: cash, online_amount: online, expenses_amount: exp, expense_items: expItems,
+    pos_cash: sc, pos_online: so, pos_expenses: se, has_mismatch: mismatch,
+    reason, shift_start: startISO, shift_end: endISO
+  }).eq('id', d.id).select();
+
+  btn.disabled = false; btn.textContent = 'Recalculate & Save';
+  if (error) { showToast('Could not save: ' + error.message, 'error'); return; }
+  if (!data || !data.length) { showToast('Database refused the update — cashier_declarations needs an UPDATE policy', 'error'); return; }
+  closeModal('decl-edit-modal');
+  showToast('Report updated ✅', 'success');
+  loadCrossCheck();
 }
 
 async function addCashOut() {
@@ -6165,8 +7171,8 @@ async function reprintReceipt(billNo) {
   }
   const br = BRANCHES[activeBranch];
   const itemsText = (sale.items&&sale.items.length&&sale.items[0].price>0)
-    ? sale.items.map(i=>`${i.qty}x ${i.name}${i.note?'\n   > '+i.note:''}   Rs ${i.price*i.qty}`).join('\n')
-    : (sale.itemsText ? sale.itemsText.split(',').map(s=>s.trim()).join('\n') : (sale.items||[]).map(i=>`${i.qty}x ${i.name}`).join('\n'));
+    ? sale.items.map(i=>`${i.qty}x ${i.name}${getDealDesc(i.name)?'\n   ('+getDealDesc(i.name)+')':''}${i.note?'\n   > '+i.note:''}   Rs ${i.price*i.qty}`).join('\n')
+    : (sale.itemsText ? sale.itemsText.split(',').map(s=>{ s=s.trim(); const m=s.match(/^(\d+)x\s+(.+?)(?:\s+\[Rider:.*)?$/); const d=m?getDealDesc(m[2]):''; return d ? s+'\n   ('+d+')' : s; }).join('\n') : (sale.items||[]).map(i=>`${i.qty}x ${i.name}`).join('\n'));
   const food = (sale.items&&sale.items.length&&sale.items[0].price>0)
     ? sale.items.reduce((s,i)=>s+i.price*i.qty,0)
     : Math.max(0, sale.total-(sale.sc||0)-(sale.deliveryCharge||0)+(sale.disc||0));
