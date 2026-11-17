@@ -6357,8 +6357,10 @@ async function loadCrossCheck() {
   try {
     _xcRows = await _xcFetchAll(fromISO, toISO);
     const { data: decls, error: dErr } = await sb.from('cashier_declarations').select('*')
-      .eq('branch', activeBranch).gte('shift_end', fromISO).lte('shift_end', toISO)
-      .order('created_at', { ascending: true });
+  .eq('branch', activeBranch)
+  .lte('shift_start', toISO)
+  .gte('shift_end', fromISO)
+  .order('created_at', { ascending: true });
     if (dErr) throw dErr;
     _xcDecls = decls || [];
     const { data: st } = await sb.from('staff').select('name,role');
@@ -6407,29 +6409,99 @@ function renderCrossCheck() {
     return items.length ? '<div style="font-size:11px;font-weight:500;color:var(--text2);margin-top:4px;line-height:1.6;">' + items.map(i => _xcEsc(i.desc) + ' — Rs ' + Number(i.amount).toLocaleString('en-PK')).join('<br>') + '</div>' : '';
   };
 
-  const sessions = {};
-  decls.forEach(d => { const k = d.session_id || d.id; (sessions[k] = sessions[k] || []).push(d); });
-  const sessHtml = Object.values(sessions).map(list => {
-    list.sort((a, b) => a.attempt_no - b.attempt_no);
-    const first = list[0], last = list[list.length - 1];
-    const chip = first.has_mismatch ? (last.has_mismatch ? ['STILL WRONG', 'var(--red)'] : ['WRONG ON 1ST TRY', 'var(--red)']) : ['CLEAN', 'var(--green)'];
-    const body = list.map(d => {
-      const items = [['Cash', d.cash_amount, (d.pos_cash || 0) - (d.pos_expenses || 0)], ['Online', d.online_amount, d.pos_online], ['Expenses', d.expenses_amount, d.pos_expenses]];
-      return items.map((it, i) => `<tr${i === 0 ? ' style="border-top:2px solid var(--border);"' : ''}>
-        ${i === 0 ? `<td rowspan="3" style="font-weight:800;vertical-align:top;white-space:nowrap;">Attempt ${d.attempt_no}<br><span style="font-size:11px;color:var(--text3);font-weight:600;">${fmtT(d.created_at)}</span><br><button onclick="openDeclEdit('${d.id}')" style="margin-top:6px;padding:3px 10px;border-radius:6px;background:rgba(142,68,173,0.15);border:1px solid rgba(142,68,173,0.4);color:#bb77ff;font-family:Outfit,sans-serif;font-size:11px;font-weight:800;cursor:pointer;">✏️ Edit</button></td>` : ''}
-        <td style="font-weight:600;">${it[0]}${it[0] === 'Expenses' ? expDetail(d) : ''}</td>
-        <td style="text-align:right;font-weight:700;color:var(--gold);">${R(it[1])}</td>
-        <td style="text-align:right;font-weight:700;color:var(--green);">${R(it[2])}</td>
-        <td>${diffCell(it[1], it[2])}</td></tr>`).join('')
-        + (d.reason ? `<tr><td></td><td colspan="4" style="color:var(--orange);font-size:12px;font-weight:700;">Reason for change: ${_xcEsc(d.reason)}</td></tr>` : '');
-    }).join('');
-    return `<div class="cb-section" style="margin-bottom:12px;">
-      <div class="cb-head" style="display:flex;justify-content:space-between;align-items:center;">
-        <span>👤 ${_xcEsc(first.staff)} · shift ${first.shift_start ? fmtT(first.shift_start) : '?'} → ${fmtT(first.shift_end)}</span>
-        <span style="background:${chip[1]};color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;">${chip[0]}</span>
+  // CASHIER CROSS-CHECK: always calculate POS figures
+  // from the exact date/time selected by the admin.
+  // Never depend on whether a shift was formally closed.
+
+  const periodStaffNames = [...new Set([
+    ...rows.map(t => t.staff),
+    ...decls.map(d => d.staff)
+  ].filter(Boolean))].sort();
+
+  const sessHtml = periodStaffNames.map(name => {
+    const staffRows = rows.filter(t => t.staff === name);
+    const staffDecls = decls.filter(d => d.staff === name);
+
+    // These figures are calculated ONLY from the selected period.
+    const actual = _xcCalc(staffRows);
+
+    const periodCash = actual.cash - actual.exp;
+    const periodOnline = actual.online;
+    const periodExpenses = actual.exp;
+
+    const declarationHtml = staffDecls.length
+      ? staffDecls.map(d => `
+        <div style="padding:10px 12px;border-top:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:800;color:var(--gold);margin-bottom:7px;">
+            CASHIER SUBMITTED REPORT · ${fmtT(d.created_at)}
+            · Attempt ${d.attempt_no}
+          </div>
+          <div class="audit-row">
+            <span>Cashier declared cash</span>
+            <b>${R(d.cash_amount)}</b>
+          </div>
+          <div class="audit-row">
+            <span>Cashier declared online</span>
+            <b>${R(d.online_amount)}</b>
+          </div>
+          <div class="audit-row">
+            <span>Cashier declared expenses</span>
+            <b>${R(d.expenses_amount)}</b>
+          </div>
+          ${d.reason ? `<div style="color:var(--orange);font-size:11px;margin-top:5px;">
+            Correction reason: ${_xcEsc(d.reason)}
+          </div>` : ''}
+          <button onclick="openDeclEdit('${d.id}')"
+            style="margin-top:7px;padding:5px 11px;border-radius:6px;
+            background:rgba(142,68,173,.15);
+            border:1px solid rgba(142,68,173,.4);
+            color:#bb77ff;font-weight:800;cursor:pointer;">
+            ✏️ Edit Declaration
+          </button>
+        </div>
+      `).join('')
+      : `<div style="padding:12px;color:var(--orange);font-size:12px;">
+          ⚠️ No cashier declaration found for this period.
+          This shift may still be open or was never formally closed.
+          POS transactions are still included above.
+        </div>`;
+
+    return `
+      <div class="cb-section" style="margin-bottom:12px;">
+        <div class="cb-head">
+          👤 ${_xcEsc(name)}
+          <span style="float:right;color:var(--green);">
+            ${staffRows.length} transactions
+          </span>
+        </div>
+
+        <div style="padding:10px 14px;background:rgba(39,174,96,.06);">
+          <div style="font-size:11px;font-weight:800;letter-spacing:1px;
+            color:var(--green);margin-bottom:8px;">
+            POS ACTUAL · SELECTED DATE & TIME ONLY
+          </div>
+
+          <div class="audit-row">
+            <span>Cash (after expenses)</span>
+            <b>${R(periodCash)}</b>
+          </div>
+          <div class="audit-row">
+            <span>Online</span>
+            <b>${R(periodOnline)}</b>
+          </div>
+          <div class="audit-row">
+            <span>Expenses</span>
+            <b>${R(periodExpenses)}</b>
+          </div>
+          <div class="audit-row">
+            <span>Total cashier activity</span>
+            <b>${R(periodCash + periodOnline + periodExpenses)}</b>
+          </div>
+        </div>
+
+        ${declarationHtml}
       </div>
-      <table class="transactions-table"><thead><tr><th></th><th>Item</th><th style="text-align:right;">Cashier says</th><th style="text-align:right;">POS actual</th><th>Difference</th></tr></thead><tbody>${body}</tbody></table>
-    </div>`;
+    `;
   }).join('');
 
   const roleOf = n => (_xcStaffRows.find(s => s.name === n) || {}).role;
@@ -6475,7 +6547,14 @@ function renderCrossCheck() {
     ${listTable('Items Removed After KOT', by('item-void'))}
     ${listTable('Discarded Orders', by('discarded'))}
     ${listTable('Deleted Delivery Orders', by('deleted-delivery'))}
-    <div style="font-size:11px;color:var(--text3);margin-top:8px;">POS actual = that cashier's own bills between their login and logout. Cash excludes delivery fees kept by riders. Online = JazzCash + Card + Bank + FoodPanda.</div>`;
+    <div style="font-size:11px;color:var(--text3);margin-top:8px;">
+  POS actual is calculated from each cashier's transactions within the exact
+  selected date/time range, regardless of shift status or logout.
+  Cash excludes delivery fees kept by riders.
+  Online = JazzCash + Card + Bank + FoodPanda.
+  Cashier declarations are historical full-shift submissions and are shown
+  separately; they are not automatically prorated into partial periods.
+</div>`;
 }
 
 // ---------- ADMIN: EDIT A CASHIER REPORT ----------
