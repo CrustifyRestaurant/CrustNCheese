@@ -952,7 +952,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
   </button>
   </div>
       </div>
-      <div class="closing-stats" id="closing-stats"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+  <span style="font-size:13px;font-weight:700;color:var(--text2);">🏍️ Total paid to riders (Rs):</span>
+  <input type="number" id="rider-payout-input" min="0" placeholder="0" style="width:130px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--orange);font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;outline:none;">
+  <button class="refresh-btn" onclick="saveRiderPayout()" style="color:var(--green);border-color:var(--green);">💾 Save</button>
+</div>
+<div class="closing-stats" id="closing-stats"></div>
       <div class="closing-breakdown" id="closing-breakdown"></div>
     </div>
   </div>
@@ -1060,6 +1065,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
       <button class="pay-method-btn"           id="pm-jazzcash"  onclick="selectPayMethod('jazzcash')">📱 JazzCash</button>
       <button class="pay-method-btn"           id="pm-foodpanda" onclick="selectPayMethod('foodpanda')">🐼 FoodPanda</button>
       <button class="pay-method-btn"           id="pm-split"     onclick="selectPayMethod('split')">✂️ Split</button>
+      <button class="pay-method-btn" id="pm-staff" onclick="selectPayMethod('staff')">👷 Staff Meal</button>
     </div>
     <!-- Cash section -->
 <div id="cash-pay-section">
@@ -1346,6 +1352,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh
       <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:5px;">To</div>
       <input type="datetime-local" step="60" id="close-range-to"
         style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--text);font-family:'Outfit',sans-serif;font-size:14px;outline:none;">
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:5px;">🏍️ Total paid to riders (Rs)</div>
+      <input type="number" id="close-range-payout" min="0" placeholder="Leave blank to keep the saved value" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--orange);font-family:'Outfit',sans-serif;font-size:14px;outline:none;">
     </div>
     <div class="modal-actions">
       <button class="modal-cancel" onclick="_closeRangeCancel()">Cancel</button>
@@ -1709,17 +1719,18 @@ function _deliveryFeeHeldByRider(o) {
   // creates a kitchen_orders row for a Delivery order, so kitchen_order_id
   // is the reliable signal for "rider collected this fee, not us."
   if (o.type !== 'Delivery') return 0;
-  const hasKitchenOrder = o.kitchenOrderId || o.kitchen_order_id;
-  return hasKitchenOrder ? (o.deliveryCharge || o.delivery_charge || 0) : 0;
+  return 0; // cashier keeps whole fee; riders are paid via Rider Payout at closing
 }
 function sumDeliveryFeesHeldByRider(orders) {
   return (orders || []).reduce((s,o) => s + _deliveryFeeHeldByRider(o), 0);
 }
+let _riderPayout = 0;
 function computeCashInHand(orders, opening) {
-  let cash = opening || 0;
+  let cash = (opening || 0) - (_riderPayout || 0);
   (orders || []).forEach(o => {
     if (o.method === 'cash')          cash += o.total;
     else if (o.method === 'cash-in')  cash += o.total;
+    else if (o.method === 'staff')    cash += o.total;
     else if (o.method === 'split')    cash += (o.splitCash || o.split_cash || 0);
     else if (o.method === 'cash-out') cash -= Math.abs(o.total);
     else if (o.method === 'expense')  cash -= Math.abs(o.total);
@@ -2656,7 +2667,7 @@ async function _loadActiveTables() {
     // failed but the sale was actually recorded.
     const CLOSING_METHODS = new Set([
       'cash', 'card', 'bank', 'jazzcash', 'foodpanda',
-      'split', 'void', 'discarded', 'deleted-delivery'
+      'split', 'staff', 'void', 'discarded', 'deleted-delivery'
     ]);
     let closedTxIds = new Set();
     if (orderIds.length) {
@@ -5086,7 +5097,7 @@ function openPayModal() {
   document.getElementById('split-cash').value = '';
   document.getElementById('split-card').value = '';
   payMethod = 'cash';
-  ['cash','card','bank','jazzcash','foodpanda','split'].forEach(m => {
+  ['cash','card','bank','jazzcash','foodpanda','split','staff'].forEach(m => {
     document.getElementById('pm-'+m).classList.toggle('selected', m === 'cash');
   });
   document.getElementById('cash-pay-section').style.display = 'block';
@@ -5636,7 +5647,7 @@ async function updateDeliveryStatus(orderId, status, knownOrder) {
         }
 
         completedOrders.push(sale);
-        if (paymentMethod === 'cash') cashInHand += (subtotal - discount); // Rider keeps the delFee
+        cashInHand = computeCashInHand(completedOrders, openingBalance);
         document.getElementById('bar-cash').textContent = 'Rs ' + cashInHand;
         saveTodaySales();
       }
@@ -6190,7 +6201,7 @@ async function _xcFetchAll(fromISO, toISO, staff) {
 function _xcCalc(rows) {
   const s = (arr, f) => arr.reduce((a, t) => a + f(t), 0);
   const bills = rows.filter(t => !_XC_NON_BILL.includes(t.method));
-  const cashBills = bills.filter(t => t.method === 'cash');
+  const cashBills = bills.filter(t => t.method === 'cash' || t.method === 'staff');
   // CrustNCheese riders keep the delivery fee on cash deliveries, so it never reaches the drawer
   const cash = s(cashBills, t => t.total || 0) - s(cashBills, t => _deliveryFeeHeldByRider(t))
              + s(bills.filter(t => t.method === 'split'), t => t.split_cash || 0);
@@ -6624,7 +6635,7 @@ async function addCashOut() {
 }
 // ───────── SUMMARY HELPERS ─────────
 function sumByMethod(list) {
-  const t = { cash:0, card:0, bank:0, jazzcash:0, foodpanda:0 };
+  const t = { cash:0, card:0, bank:0, jazzcash:0, foodpanda:0, staff:0 };
   (list || []).forEach(o => {
     const m = String(o.method || '').toLowerCase(), amt = Number(o.total) || 0;
     if (m === 'split') {
@@ -6658,7 +6669,8 @@ function buildSummaryHTML(list, opening) {
 
   const del = bills.filter(o => o.type === 'Delivery');
   const delTotal = sum(del, o => o.delivery_charge ?? o.deliveryCharge);
-  const heldByRider = sumDeliveryFeesHeldByRider(del);
+  const heldByRider = _riderPayout || 0;
+  const delOnline = sum(del.filter(o => ['card','bank','jazzcash','foodpanda'].includes(o.method)), o => o.delivery_charge ?? o.deliveryCharge);
 
   const cashIn  = sum(by('cash-in'),  o => o.total);
   const cashOut = sum(by('cash-out'), o => Math.abs(o.total));
@@ -6680,20 +6692,21 @@ function buildSummaryHTML(list, opening) {
       ${tile(R(sc), 'Service Charge', 'Collected on dine-in', 'var(--gold)')}
     </div>`);
 
-  const payTotal = pm.cash + pm.card + pm.bank + pm.jazzcash + pm.foodpanda;
+  const payTotal = pm.cash + pm.card + pm.bank + pm.jazzcash + pm.foodpanda  + pm.staff;
   const pct = v => payTotal ? Math.round(v / payTotal * 100) : 0;
   const payRow = (ic, name, v, c) =>
     `<div class="pay-row" style="--c:${c}"><div class="pay-name">${ic} ${name}</div><div class="pay-bar"><i style="width:${pct(v)}%"></i></div><div class="pay-amt">${R(v)}</div><div class="pay-pct">${pct(v)}%</div></div>`;
   const s2 = sec('💳', 'How Customers Paid', 'Total ' + R(payTotal),
     payRow('💵','Cash',pm.cash,'var(--red)') + payRow('💳','Card',pm.card,'var(--blue)') +
     payRow('🏦','Bank',pm.bank,'var(--purple)') + payRow('📱','JazzCash',pm.jazzcash,'var(--orange)') +
-    payRow('🐼','FoodPanda',pm.foodpanda,'var(--green)'));
+    payRow('🐼','FoodPanda',pm.foodpanda,'var(--green)') + payRow('👷','Staff Meals',pm.staff,'var(--gold)'));
 
   const s3 = sec('🏍️', 'Delivery Rider Fees', del.length + ' delivery bills',
     `<div class="sum-grid">
       ${tile(R(delTotal), 'Delivery Fees Charged', 'All delivery bills', 'var(--orange)', 'big')}
-      ${tile(R(heldByRider), 'Kept by Riders', 'Taken out of the drawer total', 'var(--red)')}
-      ${tile(R(delTotal - heldByRider), 'Not Rider-Held', 'Stays in shop', 'var(--text2)')}
+      ${tile(R(delOnline), 'Fees in Online Bills', 'Already inside bank/card/JazzCash totals', 'var(--blue)')}
+      ${tile(R(heldByRider), 'Paid to Riders', 'Entered at closing, taken from drawer', 'var(--red)')}
+      ${tile(R(delTotal - heldByRider), 'Fee Profit', 'Fees charged minus rider pay', 'var(--green)')}
     </div>`);
 
   const wf = (sign, label, sub, v) =>
@@ -6701,8 +6714,9 @@ function buildSummaryHTML(list, opening) {
   const s4 = sec('💵', 'Cash Drawer', 'Should match the cash you count',
     wf('+','Opening Balance','Float at start',opening) +
     wf('+','Cash Collected','Cash sales (split bills: cash part)',pm.cash) +
+    wf('+','Staff Meals','Settled in cash',pm.staff) +
     wf('+','Cash In','Money added to drawer',cashIn) +
-    wf('-','Rider Fees Kept','Delivery fees riders keep',heldByRider) +
+    wf('-','Paid to Riders','Entered at closing',heldByRider) +
     wf('-','Cash Out','Money taken from drawer',cashOut) +
     wf('-','Expenses','Paid from drawer',expenses) +
     `<div class="wf-total"><span class="t">Expected in Drawer</span><span class="a">${R(expected)}</span></div>
@@ -6774,6 +6788,7 @@ async function loadCashForRange(fromVal, toVal) {
   if (!fromVal) fromVal = todayKey() + 'T00:00';
   if (!toVal) toVal = todayKey() + 'T23:59';
   const fromDate = fromVal.slice(0,10);
+  await loadRiderPayout(fromVal, toVal);
   let txs = [];
   try {
     txs = await _xcFetchAll(_dtLocalToISO(fromVal), _dtLocalToISO(toVal));
@@ -6850,7 +6865,22 @@ async function printCashDrawerReport() {
     setTimeout(() => { document.getElementById('print-area').innerHTML=''; }, 3000);
   }, 300);
 }
-
+async function loadRiderPayout(fromVal, toVal) {
+  _riderPayout = 0;
+  try {
+    const { data } = await sb.from('rider_payouts').select('amount')
+      .eq('branch', activeBranch).eq('range_from', _dtLocalToISO(fromVal)).eq('range_to', _dtLocalToISO(toVal)).maybeSingle();
+    _riderPayout = data ? (Number(data.amount) || 0) : 0;
+  } catch(e) {}
+  const el = document.getElementById('rider-payout-input'); if (el) el.value = _riderPayout || '';
+}
+async function saveRiderPayout() {
+  const amt = Math.max(0, parseFloat(document.getElementById('rider-payout-input').value) || 0);
+  const f = document.getElementById('closing-date-from').value, t = document.getElementById('closing-date-to').value;
+  const res = await sbWrite('rider_payouts','upsert',[{branch:activeBranch, range_from:_dtLocalToISO(f), range_to:_dtLocalToISO(t), amount:amt, set_by:currentStaff}],{onConflict:'branch,range_from,range_to'});
+  if (res && res.error) { showToast('Could not save rider payout','error'); return; }
+  showToast('Rider payout saved','success'); renderClosingReport();
+}
 // ══════════════════════════════════
 // CLOSING REPORT
 // ══════════════════════════════════
@@ -6860,6 +6890,7 @@ async function renderClosingReport() {
   if (!fromEl.value) fromEl.value = todayKey() + 'T00:00';
   if (!toEl.value) toEl.value = todayKey() + 'T23:59';
   const fromDate = fromEl.value.slice(0,10), toDate = toEl.value.slice(0,10);
+  await loadRiderPayout(fromEl.value, toEl.value);
 
   document.getElementById('closing-date').textContent =
     fromEl.value.replace('T',' ') + ' → ' + toEl.value.replace('T',' ') + ' | ' + activeBranch;
@@ -6980,6 +7011,7 @@ async function printClosingReport() {
   const fromVal = document.getElementById('closing-date-from').value || (todayKey() + 'T00:00');
   const toVal   = document.getElementById('closing-date-to').value   || (todayKey() + 'T23:59');
   const fromDate = fromVal.slice(0,10), toDate = toVal.slice(0,10);
+  await loadRiderPayout(fromVal, toVal);
 
   let txs = [];
   try {
@@ -7030,6 +7062,7 @@ async function printClosingReport() {
         <div style="display:flex;justify-content:space-between;"><span>Cash Outs:</span><span>Rs ${cashOuts}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Expenses:</span><span>Rs ${expenses}</span></div>
         <div style="display:flex;justify-content:space-between;"><span>Opening Bal:</span><span>Rs ${opening}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span>Paid to Riders:</span><span>Rs ${_riderPayout}</span></div>
         <div style="display:flex;justify-content:space-between;border-top:1px solid #000;padding-top:2px;font-weight:900;font-size:13px;"><span>Hand Over:</span><span>Rs ${computeCashInHand(txs, opening)}</span></div>
       </div>
       <div style="border-top:1px dashed #000;margin-top:5px;padding-top:4px;font-size:11px;text-align:center;">Printed by: ${currentStaff} — ${now.toLocaleString('en-PK')}</div>
@@ -7046,6 +7079,7 @@ async function exportClosingStatement() {
   const toVal   = document.getElementById('closing-date-to').value   || (todayKey() + 'T23:59');
   const fromISO = _dtLocalToISO(fromVal), toISO = _dtLocalToISO(toVal);
   showToast('Building closing statement…', 'success');
+  await loadRiderPayout(fromVal, toVal);
 
   let txs;
   try { txs = await _xcFetchAll(fromISO, toISO); }
@@ -7245,6 +7279,7 @@ async function exportClosingExcel() {
   const fromVal = document.getElementById('closing-date-from').value || (todayKey() + 'T00:00');
   const toVal   = document.getElementById('closing-date-to').value   || (todayKey() + 'T23:59');
   const fromDate = fromVal.slice(0,10), toDate = toVal.slice(0,10);
+  await loadRiderPayout(fromVal, toVal);
 
   let txs = [];
   try {
@@ -7304,6 +7339,7 @@ async function exportClosingExcel() {
   lines.push(`Cash Outs,Rs ${cashOuts}`);
   lines.push(`Expenses,Rs ${expenses}`);
   lines.push(`Opening Balance,Rs ${opening}`);
+  lines.push(`Paid to Riders,Rs ${_riderPayout}`);
   lines.push(`Total to Hand Over,Rs ${computeCashInHand(txs, opening)}`);
   lines.push('');
 
@@ -7945,6 +7981,7 @@ function getCloseShiftRange() {
     const fromLocal = new Date(fromDate.getTime() - fromDate.getTimezoneOffset()*60000).toISOString().slice(0,16);
     document.getElementById('close-range-from').value = fromLocal;
     document.getElementById('close-range-to').value = toLocal;
+    loadRiderPayout(fromLocal, toLocal).then(() => { document.getElementById('close-range-payout').value = _riderPayout || ''; });
     document.getElementById('close-range-modal').classList.add('open');
   });
 }
@@ -7952,13 +7989,15 @@ function _closeRangeCancel() {
   document.getElementById('close-range-modal').classList.remove('open');
   if (_closeRangeResolve) { _closeRangeResolve(null); _closeRangeResolve = null; }
 }
-function _closeRangeConfirm() {
+async function _closeRangeConfirm() {
   const fromVal = document.getElementById('close-range-from').value;
   const toVal = document.getElementById('close-range-to').value;
   if (!fromVal || !toVal) { showToast('Pick both From and To', 'error'); return; }
   if (toVal < fromVal) { showToast('"To" must be after "From"', 'error'); return; }
   document.getElementById('close-range-modal').classList.remove('open');
-  if (_closeRangeResolve) { _closeRangeResolve({ fromVal, toVal }); _closeRangeResolve = null; }
+  if (_closeRangeResolve) { const _pv = document.getElementById('close-range-payout').value;
+    if (_pv !== '') await sbWrite('rider_payouts','upsert',[{branch:activeBranch, range_from:_dtLocalToISO(fromVal), range_to:_dtLocalToISO(toVal), amount:Math.max(0,parseFloat(_pv)||0), set_by:currentStaff}],{onConflict:'branch,range_from,range_to'});
+    _closeRangeResolve({ fromVal, toVal }); _closeRangeResolve = null; }
 }
 
 // Fetches shift_transactions for the chosen range directly from Supabase
@@ -7989,6 +8028,7 @@ async function _fetchCloseShiftTotals(fromVal, toVal) {
   const _obResult = await fetchOpeningBalance(activeBranch, fromDateOnly);
   const opening = _obResult.amount || 0;
 
+  await loadRiderPayout(fromVal, toVal);
   const finalHandOver = computeCashInHand(txs, opening);
 
   return { txs, allSales, grandTotal, totalCash, totalCard, cashOuts, expenses, opening, finalHandOver };
